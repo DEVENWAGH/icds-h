@@ -1,0 +1,88 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+frontend/dist/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Large ML datasets (regenerate via backend scripts)
+backend/dataset/*.csv
+backend/dataset/**/*.csv
+!backend/dataset/**/README*.md
+
+# Local AI / editor tooling (keep .github for shared project config)
+.agent/
+.claude/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.gemini/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.windsurf/
+.idea/
+*.swp
+*.swo
+*~
+
+# VS Code — ignore local workspace state, keep shared settings if added later
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Docker local overrides
+docker-compose.override.yml
+docker-data/

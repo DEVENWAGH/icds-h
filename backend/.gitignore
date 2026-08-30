@@ -1,0 +1,35 @@
+# Python virtual environments
+venv/
+.venv/
+ENV/
+env/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment & secrets
+.env
+.env.local
+!.env.example
+
+# Local SQLite fallback DB
+*.db
+*.sqlite3
+
+# Test & lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Large dataset files (see combine_datasets.py / train_all.py)
+dataset/*.csv
+dataset/**/*.csv
+
+# Jupyter
+.ipynb_checkpoints/
