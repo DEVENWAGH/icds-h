@@ -11,6 +11,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
 } from "recharts"
 import { useAuthStore, useAlertStore, useIncidentStore } from "../store"
+import { useSOCStore } from "../store/socEngine"
 import { useWebSocket } from "../hooks/useWebSocket"
 import { useAttackSimulator } from "../hooks/useAttackSimulator"
 import api from "../utils/api"
@@ -105,8 +106,35 @@ function Drawer({ open, onClose, title, children }) {
 }
 
 function AttackDetail({ log: attackLog, onBlockIp, onAcknowledge }) {
+  const [blockState, setBlockState] = useState("idle")
+  const [ackState, setAckState] = useState("idle")
   if (!attackLog) return <p className="text-slate-400 text-sm font-mono">Select an attack to view detailed forensic telemetry.</p>
   const raw = attackLog.raw_features || {}
+  const logId = attackLog.attack_log_id ?? attackLog.id
+
+  const handleBlock = async () => {
+    if (blockState === "loading") return
+    setBlockState("loading")
+    const ok = await onBlockIp(attackLog.source_ip, `Blocked from Attack #${logId}: ${attackLog.attack_type}`)
+    setBlockState(ok ? "done" : "error")
+    if (!ok) setTimeout(() => setBlockState("idle"), 2500)
+  }
+
+  const handleAck = async () => {
+    if (ackState === "loading") return
+    setAckState("loading")
+    const ok = await onAcknowledge(logId)
+    setAckState(ok ? "done" : "noalert")
+    if (!ok) setTimeout(() => setAckState("idle"), 2500)
+  }
+
+  const BLOCK_LABEL = {
+    idle: "Block Source IP", loading: "Blocking...", done: "IP Blocked \u2713", error: "Block Failed",
+  }
+  const ACK_LABEL = {
+    idle: "Mark Mitigated", loading: "Mitigating...", done: "Mitigated \u2713", noalert: "Mitigation Failed",
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-cyan-500/20">
@@ -125,14 +153,24 @@ function AttackDetail({ log: attackLog, onBlockIp, onAcknowledge }) {
       {/* Quick Mitigation Action Buttons */}
       <div className="grid grid-cols-2 gap-2">
         {attackLog.source_ip && attackLog.source_ip !== "N/A" && (
-          <button onClick={() => onBlockIp(attackLog.source_ip, `Blocked from Attack #${attackLog.id}: ${attackLog.attack_type}`)}
-            className="py-2 px-3 bg-red-950/60 hover:bg-red-900/80 border border-red-500/50 text-red-300 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-[0_0_10px_rgba(255,45,85,0.15)]">
-            <ShieldOff size={13} /> Block Source IP
+          <button onClick={handleBlock} disabled={blockState === "loading" || blockState === "done"}
+            className={`py-2 px-3 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all border disabled:opacity-80 ${
+              blockState === "done" ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300"
+              : blockState === "error" ? "bg-red-900/80 border-red-400 text-red-200"
+              : "bg-red-950/60 hover:bg-red-900/80 border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(255,45,85,0.15)]"}`}>
+            {blockState === "loading" ? <RefreshCw size={13} className="animate-spin" />
+              : blockState === "done" ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
+            {BLOCK_LABEL[blockState]}
           </button>
         )}
-        <button onClick={() => onAcknowledge(attackLog.id)}
-          className="py-2 px-3 bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/50 text-emerald-300 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all">
-          <CheckCircle size={13} /> Mark Mitigated
+        <button onClick={handleAck} disabled={ackState === "loading" || ackState === "done"}
+          className={`py-2 px-3 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all border disabled:opacity-80 ${
+            ackState === "done" ? "bg-emerald-900/80 border-emerald-400 text-emerald-200"
+            : ackState === "noalert" ? "bg-yellow-950/60 border-yellow-500/50 text-yellow-300"
+            : "bg-emerald-950/60 hover:bg-emerald-900/80 border-emerald-500/50 text-emerald-300"}`}>
+          {ackState === "loading" ? <RefreshCw size={13} className="animate-spin" />
+            : ackState === "noalert" ? <AlertTriangle size={13} /> : <CheckCircle size={13} />}
+          {ACK_LABEL[ackState]}
         </button>
       </div>
 
@@ -475,12 +513,13 @@ export default function SOCCommand() {
   }
 
   const blockIpDirect = async (ip, reason) => {
-    if (!ip) return
+    if (!ip || ip === "N/A") return false
     try {
       await api.post(`/firewall/block?ip_address=${encodeURIComponent(ip)}&reason=${encodeURIComponent(reason || "Direct SOC block")}&severity=CRITICAL`)
       const res = await api.get("/firewall/rules?active_only=true")
       setFwRules(res.data || [])
-    } catch (e) { console.error(e) }
+      return true
+    } catch (e) { console.error(e); return false }
   }
 
   const addManualRule = async () => {
@@ -498,19 +537,24 @@ export default function SOCCommand() {
     try {
       await api.patch(`/alerts/${id}/acknowledge`)
       setAlerts(prev => prev.map(a => a.id === id ? { ...a, is_acknowledged: true } : a))
-    } catch (e) { console.error(e) }
+      return true
+    } catch (e) { console.error(e); return false }
   }
 
-  // "Mark Mitigated" from the threat drawer passes an AttackLog id; resolve the
-  // matching Alert and acknowledge that (the acknowledge endpoint expects an
-  // Alert id, not an AttackLog id).
+  // Full mitigation: resolve AttackLog + Incident + ack alerts (drives Reports mitigated bar).
+  const mitigateByAttackLog = useSOCStore((s) => s.mitigateAttack)
+
   const acknowledgeByAttackLog = async (attackLogId) => {
-    const match = alerts.find(a => String(a.attack_log_id) === String(attackLogId))
-    if (match) {
-      await acknowledgeAlert(match.id)
-    } else {
-      console.warn(`[SOCCommand] No alert found for attack log #${attackLogId}`)
+    if (attackLogId == null) return false
+    const ok = await mitigateByAttackLog(attackLogId, { autoBlock: false })
+    if (ok) {
+      setAlerts(prev => prev.map(a =>
+        String(a.attack_log_id) === String(attackLogId)
+          ? { ...a, is_acknowledged: true }
+          : a
+      ))
     }
+    return ok
   }
 
   const topSev = liveThreats[0]?.severity || "LOW"

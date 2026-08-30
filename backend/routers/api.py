@@ -216,6 +216,149 @@ def get_latest_threats(
     ]
 
 
+def _resolve_attack_pipeline(db, log, current_user, outcome_note):
+    """Mark an AttackLog + linked Incident/Alerts/Memory as RESOLVED and push live."""
+    now = datetime.utcnow()
+    log.status = "RESOLVED"
+    log.resolved_at = now
+
+    incident = (
+        db.query(models.Incident)
+        .filter(models.Incident.attack_id == log.id)
+        .first()
+    )
+    if incident:
+        incident.status = "RESOLVED"
+        incident.closed_at = now
+        if not incident.assigned_to:
+            incident.assigned_to = current_user.id
+
+    alerts = (
+        db.query(models.Alert)
+        .filter(models.Alert.attack_log_id == log.id)
+        .all()
+    )
+    for alert in alerts:
+        alert.is_acknowledged = True
+        alert.acknowledged_by = current_user.id
+        alert.acknowledged_at = now
+
+    memory = (
+        db.query(models.AttackMemoryEntry)
+        .filter(models.AttackMemoryEntry.attack_log_id == log.id)
+        .first()
+    )
+    if memory:
+        memory.outcome = "RESOLVED"
+        memory.success = True
+
+    db.commit()
+
+    try:
+        from ws_manager import broadcast_threadsafe
+        broadcast_threadsafe({
+            "type": "lifecycle_update",
+            "data": {
+                "attack_log_id": log.id,
+                "status": "RESOLVED",
+                "message": outcome_note,
+            },
+        })
+    except Exception as err:
+        print(f"[MITIGATE] websocket broadcast skipped: {err}")
+
+    return {
+        "success": True,
+        "attack_log_id": log.id,
+        "status": "RESOLVED",
+        "alerts_acknowledged": len(alerts),
+        "incident_id": incident.id if incident else None,
+    }
+
+
+@logs_router.patch("/{log_id}/mitigate")
+def mitigate_attack_log(
+    log_id: int,
+    auto_block: bool = True,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """Analyst mitigation: resolve the attack, ack alerts, optionally block the source IP.
+
+    This is what the SOC 'Mark Mitigated' button must call so Reports, Incidents,
+    and the live HUD all see status=RESOLVED (not just an acknowledged alert).
+    """
+    log = (
+        db.query(models.AttackLog)
+        .filter(models.AttackLog.id == log_id)
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="AttackLog not found")
+
+    if auto_block and log.source_ip and log.source_ip not in ("N/A", "", None):
+        existing = (
+            db.query(models.FirewallRule)
+            .filter(
+                models.FirewallRule.ip_address == log.source_ip,
+                models.FirewallRule.is_active == True,
+            )
+            .first()
+        )
+        if not existing:
+            db.add(models.FirewallRule(
+                ip_address=log.source_ip,
+                reason=f"Mitigation of Attack #{log.id}: {log.attack_type}",
+                severity=log.severity or "HIGH",
+                attack_type=log.attack_type,
+                direction="INBOUND",
+                blocked_by=current_user.full_name or current_user.email,
+                is_active=True,
+            ))
+
+    return _resolve_attack_pipeline(
+        db,
+        log,
+        current_user,
+        f"Analyst {current_user.full_name or current_user.email} marked Attack #{log.id} mitigated.",
+    )
+
+
+@logs_router.patch("/{log_id}/contain")
+def contain_attack_log(
+    log_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """Firewall containment step: move DETECTED/ANALYZING → CONTAINMENT."""
+    log = (
+        db.query(models.AttackLog)
+        .filter(models.AttackLog.id == log_id)
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="AttackLog not found")
+    if log.status != "RESOLVED":
+        log.status = "CONTAINMENT"
+        incident = (
+            db.query(models.Incident)
+            .filter(models.Incident.attack_id == log.id)
+            .first()
+        )
+        if incident and incident.status != "RESOLVED":
+            incident.status = "CONTAINMENT"
+        db.commit()
+        try:
+            from ws_manager import broadcast_threadsafe
+            broadcast_threadsafe({
+                "type": "lifecycle_update",
+                "data": {"attack_log_id": log.id, "status": "CONTAINMENT"},
+            })
+        except Exception:
+            pass
+    return {"success": True, "attack_log_id": log.id, "status": log.status}
+
+
 # =============================================================================
 # ALERTS
 # =============================================================================
@@ -2510,6 +2653,7 @@ def get_risk_history(
     db: Session = Depends(
         get_db
     ),
+    current_user=Depends(get_current_user),
 ):
     from sqlalchemy import text
 
@@ -3513,10 +3657,46 @@ def get_latest_optimizer_results(
         .all()
     )
 
+    def hydrate_actions(result):
+        """Expand stored action-id strings into full action objects using the
+        per-run scored action table, so the Optimizer UI can render names,
+        effectiveness, cost and recovery time instead of bare ids."""
+        selected = result.selected_actions or []
+        scored = result.all_actions_scored or []
+
+        # Already full objects (older records / POST /optimize path).
+        if selected and isinstance(selected[0], dict):
+            return selected
+
+        by_id = {}
+        for action in scored:
+            if isinstance(action, dict) and action.get("id") is not None:
+                by_id[action["id"]] = action
+
+        hydrated = []
+        for action_id in selected:
+            if isinstance(action_id, dict):
+                hydrated.append(action_id)
+                continue
+            match = by_id.get(action_id)
+            if match:
+                hydrated.append(match)
+            else:
+                hydrated.append({
+                    "id": action_id,
+                    "name": str(action_id).replace("_", " ").title(),
+                    "effectiveness": result.combined_effectiveness or 0,
+                    "cost": result.combined_cost or 0,
+                    "recovery_time": 0,
+                })
+        return hydrated
+
     return [
         {
             "id":
                 result.id,
+            "attack_log_id":
+                result.attack_log_id,
             "attack_type":
                 result.attack_type,
             "severity":
@@ -3526,11 +3706,25 @@ def get_latest_optimizer_results(
             "objective_score":
                 result.objective_score,
             "selected_actions":
-                result.selected_actions,
+                hydrate_actions(result),
+            "convergence":
+                result.convergence_data or [],
             "combined_effectiveness":
                 result.combined_effectiveness,
             "combined_cost":
                 result.combined_cost,
+            "total_downtime_min":
+                result.total_downtime_min,
+            "generations":
+                result.generations,
+            "population_size":
+                result.population_size,
+            "alpha":
+                result.alpha,
+            "beta":
+                result.beta,
+            "gamma":
+                result.gamma,
             "computed_at":
                 result.computed_at.isoformat(),
         }
@@ -4375,7 +4569,7 @@ def add_firewall_rule(
     attack_type: Optional[str] = None,
     direction: str = "INBOUND",
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(["admin", "analyst"])),
 ):
     if not ip_address and not port:
         raise HTTPException(status_code=400, detail="Provide at least ip_address or port")
@@ -4409,7 +4603,7 @@ def add_firewall_rule(
 def remove_firewall_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(["admin", "analyst"])),
 ):
     rule = db.query(models.FirewallRule).filter(models.FirewallRule.id == rule_id).first()
     if not rule:
@@ -4423,7 +4617,7 @@ def remove_firewall_rule(
 def auto_block_critical(
     minutes: int = 60,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(["admin", "analyst"])),
 ):
     """Auto-block all source IPs from CRITICAL attacks in last N minutes."""
     from datetime import timedelta
@@ -4675,7 +4869,7 @@ def trigger_simulated_attack(
     attack_type: str = "DDoS",
     severity: str = "HIGH",
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(["admin", "analyst"])),
 ):
     """Manually trigger a simulated attack event through the full AI detection pipeline."""
 
@@ -4879,7 +5073,7 @@ def get_attack_types(current_user=Depends(get_current_user)):
 def run_multi_attack_scenario(
     scenario: str = "hospital_breach",
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(["admin", "analyst"])),
 ):
     """Runs a multi-stage attack scenario - fires several attack types in sequence."""
     scenarios = {
@@ -4965,7 +5159,7 @@ def run_multi_attack_scenario(
 def trigger_anomaly_attack(
     severity: str = "HIGH",
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(["admin", "analyst"])),
 ):
     """Fire a NOVEL / unrecognized attack pattern (zero-day).
 
@@ -5158,7 +5352,7 @@ def get_replay_status(current_user=Depends(get_current_user)):
 
 
 @attack_sim_router.post("/replay/toggle")
-def toggle_replay(enabled: Optional[bool] = None, current_user=Depends(get_current_user)):
+def toggle_replay(enabled: Optional[bool] = None, current_user=Depends(require_role(["admin", "analyst"]))):
     if enabled is not None:
         REPLAY_ACTIVE_FLAG["enabled"] = enabled
     else:

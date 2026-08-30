@@ -1,7 +1,11 @@
-import React, { useState } from 'react'
-import { FileText, Download, BarChart3, TrendingUp } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { FileText, Download, BarChart3, TrendingUp, Shield, Activity, AlertTriangle } from 'lucide-react'
 import { PieChart as RePie, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Legend } from 'recharts'
 import { useSOCStore } from '../store/socEngine'
+import api from '../utils/api'
+
+const isMitigated = (incident) =>
+  incident.resolved === true || String(incident.status || '').toUpperCase() === 'RESOLVED'
 
 const ATTACK_COLORS = {
   // TON_IoT
@@ -25,11 +29,20 @@ const DATASET_COLORS = { 'TON_IoT': '#ff2d55', 'PhiUSIIL': '#30d158', 'CERT r4':
 
 export default function Reports() {
   const allIncidents = useSOCStore((s) => s.incidents).filter(i => i.attack_type !== 'Normal')
+  const refreshIncidents = useSOCStore((s) => s.refreshIncidents)
   const [generating, setGenerating] = useState(false)
+  const [backendResolved, setBackendResolved] = useState(null)
+
+  useEffect(() => {
+    refreshIncidents()
+    api.get('/dashboard/')
+      .then(res => setBackendResolved(res.data?.attack_stats?.resolved ?? null))
+      .catch(() => {})
+  }, [refreshIncidents])
 
   const stats = {
     total_incidents: allIncidents.length,
-    total_resolved: allIncidents.filter(i => i.resolved).length,
+    total_resolved: allIncidents.filter(isMitigated).length,
     avg_risk_score: allIncidents.length ? allIncidents.reduce((acc, i) => acc + (i.risk_score || 0), 0) / allIncidents.length : 0,
     avg_confidence: allIncidents.length ? allIncidents.reduce((acc, i) => acc + (i.confidence || 0), 0) / allIncidents.length : 0,
     datasets: allIncidents.reduce((acc, i) => {
@@ -67,13 +80,26 @@ export default function Reports() {
     return {
       day,
       detected: dayIncidents.length,
-      mitigated: dayIncidents.filter(i => i.resolved).length,
+      mitigated: dayIncidents.filter(isMitigated).length,
     }
   })
 
   const totalIncidents = stats.total_incidents
-  const resolvedCount = stats.total_resolved
+  const resolvedCount = backendResolved != null
+    ? Math.max(stats.total_resolved, backendResolved)
+    : stats.total_resolved
   const mitigationRate = totalIncidents > 0 ? Math.round((resolvedCount / totalIncidents) * 100) : 0
+
+  const healthcareKpis = {
+    criticalThreats: allIncidents.filter(i => i.severity === 'CRITICAL' && !isMitigated(i)).length,
+    zeroDayCount: allIncidents.filter(i => String(i.attack_type || '').includes('Anomaly')).length,
+    clinicalDepts: new Set(
+      allIncidents
+        .filter(i => ['ICU', 'Pharmacy', 'Health Information', 'Radiology'].includes(i.department))
+        .map(i => i.department)
+    ).size,
+    ransomwareCount: allIncidents.filter(i => i.attack_type === 'Ransomware').length,
+  }
 
   const datasetData = Object.entries(stats.datasets).map(([ds, count]) => ({ ds, count }))
   const deptData = Object.entries(stats.departments)
@@ -125,6 +151,25 @@ export default function Reports() {
             </div>
             <p className={`text-2xl font-black font-mono ${color}`}>{val}</p>
             <p className="text-xs text-gray-600 mt-1">{sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Healthcare Security Posture */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Critical Threats Active', val: healthcareKpis.criticalThreats, sub: 'Unresolved CRITICAL events', icon: AlertTriangle, color: 'text-red-400' },
+          { label: 'Zero-Day Detections', val: healthcareKpis.zeroDayCount, sub: 'Isolation Forest anomalies', icon: Activity, color: 'text-yellow-400' },
+          { label: 'Clinical Depts Impacted', val: healthcareKpis.clinicalDepts, sub: 'ICU · Pharmacy · HIM · Radiology', icon: Shield, color: 'text-cyan-400' },
+          { label: 'Ransomware Events', val: healthcareKpis.ransomwareCount, sub: 'PHI encryption risk vector', icon: Shield, color: 'text-purple-400' },
+        ].map(({ label, val, sub, icon: Icon, color }) => (
+          <div key={label} className="cyber-card p-4 border border-cyber-cyan/10">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-mono text-gray-500 uppercase">{label}</span>
+              <Icon size={14} className="text-cyber-cyan" />
+            </div>
+            <p className={`text-xl font-black font-mono ${color}`}>{val}</p>
+            <p className="text-[10px] text-gray-600 mt-1">{sub}</p>
           </div>
         ))}
       </div>
@@ -251,7 +296,7 @@ export default function Reports() {
                       background: `${DATASET_COLORS[inc.dataset] || '#888'}20`,
                     }}>{inc.dataset || 'CICIDS-2017'}</span>
                   </td>
-                  <td className="py-2" style={{ color: inc.resolved ? '#00ff88' : '#ffd60a' }}>{inc.status}</td>
+                  <td className="py-2" style={{ color: isMitigated(inc) ? '#00ff88' : '#ffd60a' }}>{inc.status}</td>
                 </tr>
               ))}
             </tbody>

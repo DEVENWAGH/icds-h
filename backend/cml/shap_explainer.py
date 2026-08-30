@@ -1,6 +1,10 @@
 import os
 import csv
+import threading
 from typing import Dict, List, Optional, Tuple
+
+# tqdm progress bars break under Windows + concurrently/uvicorn (Errno 22).
+os.environ.setdefault("TQDM_DISABLE", "1")
 
 import pandas as pd
 import joblib
@@ -136,6 +140,12 @@ class ICDSExplainer:
 
         # One SHAP explainer per dataset.
         self.explainers = {}
+
+        # KernelExplainer.shap_values() mutates internal state and is NOT
+        # thread-safe. FastAPI serves sync endpoints from a threadpool, so
+        # concurrent /xai/explain calls would corrupt each other's arrays.
+        # Serialize all SHAP computation behind this lock.
+        self._shap_lock = threading.Lock()
 
         self._load_models()
 
@@ -393,39 +403,37 @@ class ICDSExplainer:
                 )
 
         # ---------------------------------------------------------------------
-        # GET/CACHE SHAP EXPLAINER
+        # GET/CACHE SHAP EXPLAINER + CALCULATE SHAP (thread-safe)
         # ---------------------------------------------------------------------
 
-        explainer_obj = self._get_explainer(
-            dataset_source
-        )
-
-        # ---------------------------------------------------------------------
-        # CALCULATE SHAP
-        # ---------------------------------------------------------------------
-
-        shap_values = explainer_obj.shap_values(
-            X_scaled
-        )
-
-        shap_vector = (
-            self._extract_predicted_class_shap_values(
-                shap_values=shap_values,
-                predicted_class_index=predicted_index,
-                n_features=len(feature_names),
+        with self._shap_lock:
+            explainer_obj = self._get_explainer(
+                dataset_source
             )
-        )
 
-        # ---------------------------------------------------------------------
-        # BASE VALUE
-        # ---------------------------------------------------------------------
-
-        base_value = (
-            self._extract_base_value(
-                explainer_obj.expected_value,
-                predicted_index,
+            shap_values = explainer_obj.shap_values(
+                X_scaled,
+                silent=True,
             )
-        )
+
+            shap_vector = (
+                self._extract_predicted_class_shap_values(
+                    shap_values=shap_values,
+                    predicted_class_index=predicted_index,
+                    n_features=len(feature_names),
+                )
+            )
+
+            # -----------------------------------------------------------------
+            # BASE VALUE
+            # -----------------------------------------------------------------
+
+            base_value = (
+                self._extract_base_value(
+                    explainer_obj.expected_value,
+                    predicted_index,
+                )
+            )
 
         # ---------------------------------------------------------------------
         # BUILD FEATURE CONTRIBUTIONS

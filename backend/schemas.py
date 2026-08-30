@@ -79,6 +79,7 @@ class AlertOut(BaseModel):
     message: str
     severity: str
     is_acknowledged: bool
+    attack_log_id: Optional[int] = None
     created_at: datetime
     class Config: from_attributes = True
 

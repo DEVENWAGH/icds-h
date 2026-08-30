@@ -784,6 +784,41 @@ clearQIGARecommendation: (
 },
 
 // =========================================================
+// REFRESH INCIDENTS FROM BACKEND
+// =========================================================
+
+refreshIncidents: async () => {
+  try {
+    const { data } = await api.get('/logs/latest?limit=100')
+    const rawLogs = Array.isArray(data) ? data : []
+    set({
+      incidents: rawLogs.map(normalizeIncident),
+      lastTick: Date.now(),
+    })
+  } catch (error) {
+    console.error('[SOC] Failed to refresh logs:', error)
+  }
+},
+
+// =========================================================
+// ANALYST MITIGATION (RESOLVE + ACK ALERTS)
+// =========================================================
+
+mitigateAttack: async (attackLogId, { autoBlock = false } = {}) => {
+  if (attackLogId == null) return false
+  try {
+    await api.patch(
+      `/logs/${attackLogId}/mitigate?auto_block=${autoBlock ? 'true' : 'false'}`
+    )
+    get().updateLifecycle(attackLogId, 'RESOLVED')
+    return true
+  } catch (error) {
+    console.error('[SOC] Mitigation failed:', error)
+    return false
+  }
+},
+
+// =========================================================
 // LIFECYCLE UPDATE
 // =========================================================
 
