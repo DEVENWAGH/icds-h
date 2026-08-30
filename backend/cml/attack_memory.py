@@ -141,20 +141,42 @@ class AttackMemory:
     def stats(self) -> Dict:
         """Return memory statistics."""
         if not self._memory:
-            return {"total": 0, "by_type": {}, "success_rate": 0}
+            return {
+                "total": 0,
+                "total_entries": 0,
+                "capacity": self.max_size,
+                "by_type": {},
+                "success_rate": 0,
+                "overall_success_rate": 0,
+                "unique_actions": 0,
+                "most_frequent_attack_type": None,
+            }
 
         by_type: Dict[str, int] = {}
         successes = 0
+        unique_actions = set()
         for e in self._memory:
             by_type[e["attack_type"]] = by_type.get(e["attack_type"], 0) + 1
             if e.get("success"):
                 successes += 1
+            for action in (e.get("recommended_actions") or []):
+                unique_actions.add(action)
+
+        total = len(self._memory)
+        success_rate = round(successes / total, 3)
+        most_frequent = max(by_type, key=by_type.get) if by_type else None
 
         return {
-            "total": len(self._memory),
+            # legacy keys (kept for backward compatibility)
+            "total": total,
             "capacity": self.max_size,
             "by_type": by_type,
-            "success_rate": round(successes / len(self._memory), 3),
+            "success_rate": success_rate,
+            # keys consumed by the Threat Memory UI cards
+            "total_entries": total,
+            "overall_success_rate": success_rate,
+            "unique_actions": len(unique_actions),
+            "most_frequent_attack_type": most_frequent,
         }
 
     def _infer_dataset(self, features: Dict, explicit_source: Optional[str] = None) -> str:

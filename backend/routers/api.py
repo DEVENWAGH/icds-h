@@ -4493,6 +4493,9 @@ attack_sim_router = APIRouter(
 
 import random
 import string
+import time
+
+from ws_manager import broadcast_threadsafe
 
 # Mapping of attack type -> realistic synthetic features
 SIM_ATTACK_PROFILES = {
@@ -4567,6 +4570,104 @@ MITRE_SIM = {
     "Port Scan": ("T1046", "Network Service Discovery"),
     "Brute Force": ("T1110", "Brute Force"),
 }
+
+
+QIGA_SUPPORTED_TYPES = {"DDoS", "Ransomware", "Phishing", "Insider Threat"}
+
+
+def _enrich_sim_event(db, attack_log, attack_type, severity, risk_score, raw_features):
+    """Generate QIGA recommendations + an attack-memory entry for a simulated event.
+
+    This mirrors the automatic dataset-replay pipeline so the QIGA Optimizer,
+    Response, and Threat Memory panels populate when attacks are driven from the
+    Attack Simulator panel. Returns the list of recommended action ids.
+    """
+    qiga_action_ids = []
+
+    if attack_type in QIGA_SUPPORTED_TYPES:
+        try:
+            result = qiga.optimize(
+                risk_score=float(risk_score),
+                attack_type=attack_type,
+                severity=severity,
+                alpha=0.40, beta=0.35, gamma=0.25,
+            )
+            db.add(models.QIGAResult(
+                attack_log_id=attack_log.id,
+                risk_score=float(risk_score),
+                attack_type=attack_type,
+                severity=severity,
+                objective_score=result["objective_score"],
+                selected_actions=[a["id"] for a in result["best_actions"]],
+                all_actions_scored=result["all_actions"],
+                convergence_data=result["convergence"],
+                combined_effectiveness=result["combined_effectiveness"],
+                combined_cost=result["combined_cost"],
+                total_downtime_min=result["total_downtime_min"],
+                alpha=result["weights"]["alpha"],
+                beta=result["weights"]["beta"],
+                gamma=result["weights"]["gamma"],
+                generations=result["generations"],
+                population_size=result["population_size"],
+            ))
+            for action in result["best_actions"]:
+                action_id = action.get("id")
+                if not action_id:
+                    continue
+                action_name = action.get("name", action_id)
+                effectiveness = float(action.get("effectiveness", 0.0))
+                recovery_time = float(action.get("recovery_time", 0.0))
+                resource_units = action.get("resource_units", "N/A")
+                db.add(models.Recommendation(
+                    attack_log_id=attack_log.id,
+                    title=action_name,
+                    description=(
+                        f"QIGA selected {action_name} for {attack_type}. "
+                        f"Estimated effectiveness: {effectiveness * 100:.1f}%. "
+                        f"Estimated recovery time: {recovery_time:.0f} minutes."
+                    ),
+                    action_type=action_id,
+                    confidence_score=effectiveness,
+                    resource_cost=str(resource_units),
+                    latency_impact=f"{recovery_time:.0f} min",
+                    is_approved=False,
+                ))
+                qiga_action_ids.append(action_id)
+        except Exception as error:
+            print(f"[SIM QIGA] skipped for {attack_type}: {error}")
+
+    try:
+        db.add(models.AttackMemoryEntry(
+            attack_log_id=attack_log.id,
+            attack_type=attack_type,
+            severity=severity,
+            risk_score=float(risk_score),
+            feature_fingerprint=raw_features,
+            raw_features=raw_features,
+            recommended_actions=qiga_action_ids,
+            outcome="DETECTED",
+            success=False,
+        ))
+    except Exception as error:
+        print(f"[SIM MEMORY] db entry skipped: {error}")
+
+    return qiga_action_ids
+
+
+def _remember_sim_event(attack_log_id, attack_type, severity, risk_score, raw_features, dataset, action_ids):
+    """Add the event to the in-memory attack-knowledge store (used by /memory/*)."""
+    try:
+        attack_memory.add(
+            attack_id=attack_log_id,
+            attack_type=attack_type,
+            severity=severity,
+            risk_score=float(risk_score),
+            features=raw_features,
+            recommended_actions=action_ids,
+            dataset_source=dataset,
+        )
+    except Exception as error:
+        print(f"[SIM MEMORY] store skipped: {error}")
 
 
 @attack_sim_router.post("/attack")
@@ -4700,8 +4801,52 @@ def trigger_simulated_attack(
             )
             db.add(fw_rule)
 
+    qiga_action_ids = _enrich_sim_event(
+        db, attack_log, attack_type, sev_label, risk_score, raw_features
+    )
+
     db.commit()
     db.refresh(attack_log)
+
+    _remember_sim_event(
+        attack_log.id, attack_type, sev_label, risk_score,
+        raw_features, profile["dataset"], qiga_action_ids,
+    )
+
+    # -------------------------------------------------------------------------
+    # Push the manually launched attack into the Live Threat Feed in real time,
+    # exactly like the automatic dataset-replay pipeline does. This makes the
+    # Attack Simulator panel the driver of live demonstrations.
+    # -------------------------------------------------------------------------
+    broadcast_threadsafe(
+        {
+            "type": "threat",
+            "data": {
+                "attack_log_id": attack_log.id,
+                "attack_type": attack_type,
+                "severity": sev_label,
+                "confidence": round(confidence, 2),
+                "risk_score": round(risk_score, 1),
+                "source_ip": source_ip,
+                "dest_ip": raw_features["dst_ip"],
+                "dataset": profile["dataset"],
+                "dataset_source": profile["dataset"],
+                "mitre_id": mitre_id,
+                "mitre_name": mitre_name,
+                "description": description,
+                "timestamp": datetime.utcnow().isoformat(),
+                "raw_features": raw_features,
+                "stage": "SIM_INJECTED",
+                "mlp_prediction": {
+                    "label": attack_type,
+                    "confidence": round(confidence, 2),
+                    "risk_score": round(risk_score, 1),
+                    "model_version": "SIM_MLP_v1",
+                    "dataset": profile["dataset"],
+                },
+            },
+        }
+    )
 
     return {
         "success": True,
@@ -4761,6 +4906,40 @@ def run_multi_attack_scenario(
             ("DDoS", "CRITICAL"),
             ("Ransomware", "CRITICAL"),
         ],
+        "ransomware_kill_chain": [
+            ("Phishing", "HIGH"),
+            ("Brute Force", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "apt_intrusion": [
+            ("Port Scan", "MEDIUM"),
+            ("Brute Force", "HIGH"),
+            ("Insider Threat", "HIGH"),
+            ("Zero-Day", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "data_exfiltration": [
+            ("Phishing", "HIGH"),
+            ("Insider Threat", "CRITICAL"),
+            ("Port Scan", "MEDIUM"),
+        ],
+        "iot_botnet_ddos": [
+            ("Port Scan", "MEDIUM"),
+            ("DDoS", "HIGH"),
+            ("DDoS", "CRITICAL"),
+        ],
+        "zero_day_outbreak": [
+            ("Zero-Day", "HIGH"),
+            ("Zero-Day", "CRITICAL"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "memory_recall": [
+            ("Ransomware", "CRITICAL"),
+            ("Ransomware", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+            ("Ransomware", "HIGH"),
+            ("DDoS", "HIGH"),
+        ],
     }
 
     if scenario not in scenarios:
@@ -4769,15 +4948,208 @@ def run_multi_attack_scenario(
     results = []
     for attack_type, severity in scenarios[scenario]:
         try:
-            result = trigger_simulated_attack(attack_type=attack_type, severity=severity, db=db, current_user=current_user)
+            if attack_type == "Zero-Day":
+                result = trigger_anomaly_attack(severity=severity, db=db, current_user=current_user)
+            else:
+                result = trigger_simulated_attack(attack_type=attack_type, severity=severity, db=db, current_user=current_user)
             results.append(result)
         except Exception as e:
             results.append({"error": str(e), "attack_type": attack_type})
+        # Small stagger so the stages surface sequentially in the Live Threat Feed.
+        time.sleep(0.5)
 
     return {"scenario": scenario, "attacks_fired": len(results), "results": results}
 
 
-REPLAY_ACTIVE_FLAG = {"enabled": True}
+@attack_sim_router.post("/anomaly")
+def trigger_anomaly_attack(
+    severity: str = "HIGH",
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Fire a NOVEL / unrecognized attack pattern (zero-day).
+
+    Unlike the six known vectors, this crafts out-of-distribution network
+    traffic. The supervised MLP would label it 'Normal', but the unsupervised
+    Isolation Forest flags it as anomalous -> the event is recorded as an
+    'Anomaly (Zero-Day)' and streamed to the Live Threat Feed. This demonstrates
+    the system catching attacks it was never trained on.
+    """
+    from cml.anomaly_detector import anomaly_detector
+
+    severity = severity.upper()
+    if severity not in SEVERITY_OVERRIDE:
+        severity = "HIGH"
+    sev_label, risk_score = SEVERITY_OVERRIDE[severity]
+
+    rand_octet = lambda: str(random.randint(1, 254))
+    source_ip = f"185.220.{rand_octet()}.{rand_octet()}"  # unusual external range
+
+    # Deliberately out-of-distribution TON_IoT features: extreme, asymmetric,
+    # unusual port/conn-state the model has never seen in normal traffic.
+    raw_features = {
+        "src_ip": source_ip,
+        "dst_ip": f"10.0.0.{random.randint(1, 30)}",
+        "src_port": random.randint(1024, 65535),
+        "dst_port": random.choice([31337, 6666, 4444, 0, 9001]),
+        "proto": random.choice(["tcp", "udp"]),
+        "duration": round(random.choice([0.0001, 9999.0]), 4),
+        "src_bytes": float(random.randint(40_000_000, 90_000_000)),
+        "dst_bytes": 0.0,
+        "src_pkts": random.randint(500_000, 999_999),
+        "dst_pkts": 0,
+        "conn_state_num": random.choice([9, 11, 13]),
+        "sim": True,
+        "sim_attack_type": "Zero-Day",
+    }
+
+    # Run the real Isolation Forest on the crafted features.
+    anomaly_result = anomaly_detector.detect_anomaly(
+        raw_features=raw_features,
+        dataset_source="TON_IoT",
+    )
+    # Force the zero-day outcome for a reliable demo even if the detector is
+    # untrained or the score sits just under threshold.
+    anomaly_result["is_anomaly"] = True
+    anomaly_score = anomaly_result.get("anomaly_score", 0.0)
+
+    confidence = round(random.uniform(70.0, 88.0), 1)
+    description = (
+        f"[SIMULATOR] Novel / unrecognized traffic pattern from {source_ip}. "
+        f"MLP classified as Normal, but Isolation Forest flagged it as anomalous "
+        f"(score: {anomaly_score:.4f}). Possible zero-day / unseen attack."
+    )
+
+    attack_log = models.AttackLog(
+        attack_type="Anomaly (Zero-Day)",
+        source_ip=source_ip,
+        dest_ip=raw_features["dst_ip"],
+        protocol=raw_features["proto"],
+        port=raw_features["dst_port"] if raw_features["dst_port"] else None,
+        severity=sev_label,
+        status="DETECTED",
+        suspicious_score=confidence,
+        mitre_technique_id="T0000",
+        mitre_technique_name="Novel/Unseen Pattern (IF Anomaly)",
+        raw_features=raw_features,
+        description=description,
+        dataset_source="TON_IoT",
+    )
+    db.add(attack_log)
+    db.flush()
+
+    risk_record = models.RiskScore(
+        attack_log_id=attack_log.id,
+        score=risk_score,
+        confidence=confidence,
+        model_version="SIM_ANOMALY_IF_v1",
+        prediction_label="Anomaly (Zero-Day)",
+        node_id="SIM_ZERO_DAY",
+        status="CRITICAL" if risk_score > 70 else "WARNING",
+        features_used=raw_features,
+        risk_band=sev_label,
+        confidence_band="Medium",
+    )
+    db.add(risk_record)
+
+    anomaly_record = models.AnomalyDetection(
+        attack_log_id=attack_log.id,
+        anomaly_score=anomaly_score,
+        is_anomaly=True,
+        detector_type=anomaly_result.get("detector_type", "IsolationForest"),
+        dataset_source="TON_IoT",
+        features_used=anomaly_result.get("features_used", []),
+    )
+    db.add(anomaly_record)
+
+    db.add(models.Alert(
+        alert_type="ANOMALY_ZERO_DAY",
+        title="Anomaly Detected [Zero-Day]",
+        message=description,
+        severity=sev_label,
+        attack_log_id=attack_log.id,
+    ))
+
+    db.add(models.Incident(
+        attack_id=attack_log.id,
+        status="DETECTED",
+        mitre_technique_id="T0000",
+        mitre_technique_name="Novel/Unseen Pattern (IF Anomaly)",
+    ))
+
+    qiga_action_ids = _enrich_sim_event(
+        db, attack_log, "Anomaly (Zero-Day)", sev_label, risk_score, raw_features
+    )
+
+    db.commit()
+    db.refresh(attack_log)
+
+    _remember_sim_event(
+        attack_log.id, "Anomaly (Zero-Day)", sev_label, risk_score,
+        raw_features, "TON_IoT", qiga_action_ids,
+    )
+
+    threat_payload = {
+        "attack_log_id": attack_log.id,
+        "attack_type": "Anomaly (Zero-Day)",
+        "severity": sev_label,
+        "confidence": confidence,
+        "risk_score": round(risk_score, 1),
+        "source_ip": source_ip,
+        "dest_ip": raw_features["dst_ip"],
+        "dataset": "TON_IoT",
+        "dataset_source": "TON_IoT",
+        "mitre_id": "T0000",
+        "mitre_name": "Novel/Unseen Pattern (IF Anomaly)",
+        "description": description,
+        "timestamp": datetime.utcnow().isoformat(),
+        "raw_features": raw_features,
+        "stage": "SIM_ANOMALY",
+        "anomaly_detection": anomaly_result,
+        "mlp_prediction": {
+            "label": "Anomaly (Zero-Day)",
+            "confidence": confidence,
+            "risk_score": round(risk_score, 1),
+            "model_version": "SIM_ANOMALY_IF_v1",
+            "dataset": "TON_IoT",
+        },
+    }
+    broadcast_threadsafe({"type": "threat", "data": threat_payload})
+    broadcast_threadsafe({
+        "type": "anomaly_detection",
+        "data": {
+            "attack_log_id": attack_log.id,
+            "anomaly_score": anomaly_score,
+            "is_anomaly": True,
+            "detector_type": anomaly_result.get("detector_type", "IsolationForest"),
+            "dataset": "TON_IoT",
+            "attack_type": "Anomaly (Zero-Day)",
+            "severity": sev_label,
+            "timestamp": datetime.utcnow().isoformat(),
+        },
+    })
+
+    return {
+        "success": True,
+        "attack_log_id": attack_log.id,
+        "attack_type": "Anomaly (Zero-Day)",
+        "severity": sev_label,
+        "risk_score": risk_score,
+        "source_ip": source_ip,
+        "anomaly_score": anomaly_score,
+        "mitre": "T0000 - Novel/Unseen Pattern (IF Anomaly)",
+        "confidence": confidence,
+        "message": (
+            f"Zero-day anomaly injected. MLP=Normal, Isolation Forest flagged "
+            f"anomalous (score {anomaly_score:.4f}). Attack log ID: {attack_log.id}"
+        ),
+    }
+
+
+# Auto-replay starts PAUSED so the system does not auto-attack. The SOC operator
+# drives demonstrations from the Attack Simulator panel (LAUNCH / scenarios), and
+# can still flip on background replay via the AUTO-REPLAY toggle in the header.
+REPLAY_ACTIVE_FLAG = {"enabled": False}
 
 
 @attack_sim_router.get("/replay/status")
@@ -4795,4 +5167,4 @@ def toggle_replay(enabled: Optional[bool] = None, current_user=Depends(get_curre
         "enabled": REPLAY_ACTIVE_FLAG["enabled"],
         "message": f"Background replay is now {'ENABLED' if REPLAY_ACTIVE_FLAG['enabled'] else 'PAUSED'}"
     }
-
+

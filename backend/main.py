@@ -34,6 +34,8 @@ from cml.qiga_optimizer import qiga
 from cml.shap_explainer import explainer as shap_explainer
 from cml.anomaly_detector import anomaly_detector
 
+from ws_manager import manager, set_main_loop
+
 
 # =============================================================================
 # CONFIGURATION
@@ -102,44 +104,9 @@ app.include_router(attack_sim_router)
 # =============================================================================
 # WEBSOCKET MANAGER
 # =============================================================================
-
-class ConnectionManager:
-
-    def __init__(self):
-        self.connections = []
-
-    async def connect(
-        self,
-        websocket: WebSocket,
-    ):
-        await websocket.accept()
-        self.connections.append(websocket)
-
-    def disconnect(
-        self,
-        websocket: WebSocket,
-    ):
-        if websocket in self.connections:
-            self.connections.remove(websocket)
-
-    async def broadcast(
-        self,
-        data: dict,
-    ):
-        dead_connections = []
-
-        for websocket in list(self.connections):
-            try:
-                await websocket.send_json(data)
-            except Exception:
-                dead_connections.append(websocket)
-
-        for websocket in dead_connections:
-            if websocket in self.connections:
-                self.connections.remove(websocket)
-
-
-manager = ConnectionManager()
+# The ConnectionManager and shared `manager` instance now live in ws_manager.py
+# so synchronous REST endpoints (e.g. the Attack Simulator) can broadcast into
+# the same live feed via broadcast_threadsafe(). Imported at the top of file.
 
 
 # =============================================================================
@@ -1997,6 +1964,10 @@ async def live_capture_service():
 
 @app.on_event("startup")
 async def startup():
+    # Capture the running event loop so synchronous endpoints (Attack Simulator)
+    # can push events into the live WebSocket feed via broadcast_threadsafe().
+    set_main_loop(asyncio.get_running_loop())
+
     seed_initial_data()
 
     # Train anomaly detector on existing dataset

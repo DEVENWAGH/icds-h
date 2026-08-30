@@ -175,7 +175,7 @@ export default function MemoryPage() {
                       </div>
                       <div className="flex items-center gap-3 text-xs font-mono text-gray-500">
                         <span>Risk: <span className="text-white">{entry.risk_score?.toFixed(1)}</span></span>
-                        <span>Actions: <span className="text-cyber-cyan">{(entry.actions || []).join(', ')}</span></span>
+                        <span>Actions: <span className="text-cyber-cyan">{(entry.recommended_actions || entry.actions || []).join(', ') || '—'}</span></span>
                       </div>
                       {/* Similarity bar */}
                       <div className="mt-2">
@@ -264,7 +264,7 @@ export default function MemoryPage() {
                   <td className="py-2 pr-3 font-bold" style={{ color: TYPE_COLORS[e.attack_type] || '#888' }}>{e.attack_type}</td>
                   <td className="py-2 pr-3 text-gray-400">{e.severity}</td>
                   <td className="py-2 pr-3 text-white">{e.risk_score?.toFixed(1)}</td>
-                  <td className="py-2 pr-3 text-cyber-cyan">{(e.actions ?? []).join(', ')}</td>
+                  <td className="py-2 pr-3 text-cyber-cyan">{(e.recommended_actions ?? e.actions ?? []).join(', ') || '—'}</td>
                   <td className="py-2 pr-3"><OutcomeBadge outcome={e.outcome} /></td>
                   <td className="py-2 text-gray-600">{new Date(e.recorded_at).toLocaleTimeString()}</td>
                 </tr>

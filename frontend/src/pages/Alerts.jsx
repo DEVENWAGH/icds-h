@@ -8,6 +8,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 
+import { useNavigate } from 'react-router-dom'
 import { useSOCStore } from '../store/socEngine'
 import { useIncidentStore } from '../store'
 
@@ -44,6 +45,8 @@ export default function Alerts() {
   const incidents = useSOCStore(
     (s) => s.incidents
   )
+
+  const navigate = useNavigate()
 
   const {
     selectedAttackLogId,
@@ -296,6 +299,8 @@ export default function Alerts() {
         }
       )
     )
+
+    navigate('/app/response')
   }
 
   return (

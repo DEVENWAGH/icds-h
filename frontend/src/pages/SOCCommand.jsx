@@ -242,13 +242,19 @@ const ATTACK_TYPES = [
 
 const SCENARIOS = [
   { key: "hospital_breach", label: "Hospital Breach", desc: "Port Scan -> Brute Force -> Ransomware" },
-  { key: "phishing_campaign", label: "Phishing Campaign", desc: "Phishing URL -> Insider -> Lateral" },
+  { key: "phishing_campaign", label: "Phishing Campaign", desc: "Phishing URL -> Insider -> Ransomware" },
+  { key: "ransomware_kill_chain", label: "Ransomware Kill Chain", desc: "Phishing -> Brute Force -> Ransomware" },
+  { key: "apt_intrusion", label: "APT Intrusion", desc: "Recon -> Access -> Insider -> Zero-Day -> Ransomware" },
+  { key: "data_exfiltration", label: "Data Exfiltration", desc: "Phishing -> Insider (CRIT) -> Port Scan" },
   { key: "ddos_wave", label: "DDoS Flood Wave", desc: "3x Simultaneous CRITICAL SYN Flood" },
+  { key: "iot_botnet_ddos", label: "IoT Botnet DDoS", desc: "Port Scan -> DDoS -> DDoS (medical IoT)" },
+  { key: "zero_day_outbreak", label: "Zero-Day Outbreak", desc: "Unknown pattern x2 -> Ransomware" },
+  { key: "memory_recall", label: "Memory Recall Drill", desc: "Repeat Ransomware x4 -> DDoS (builds Threat Memory)" },
   { key: "full_spectrum", label: "Full Spectrum Siege", desc: "All 6 attack vectors sequenced" },
 ]
 
 function SimulatorPanel({ sim }) {
-  const { stage, log, loading, fireAttack, fireScenario, clearLog } = sim
+  const { stage, log, loading, fireAttack, fireScenario, fireAnomaly, clearLog } = sim
   const [selected, setSelected] = useState("DDoS")
   const [severity, setSeverity] = useState("HIGH")
   const [activeTab, setActiveTab] = useState("attacks")
@@ -314,9 +320,20 @@ function SimulatorPanel({ sim }) {
               ? <><RefreshCw size={13} className="animate-spin text-cyan-400" /> INJECTING SIM...</>
               : <><Play size={13} /> LAUNCH {selected.toUpperCase()}</>}
           </button>
+
+          <button onClick={() => fireAnomaly(severity)} disabled={loading}
+            className="w-full py-2 font-mono font-bold text-[11px] rounded-lg flex items-center justify-center gap-2 transition-all duration-150 hover:brightness-125 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+            style={{
+              background: "linear-gradient(135deg,#7c3aed,#0ea5e9)",
+              color: "#fff",
+              border: "1px solid rgba(168,85,247,0.5)"
+            }}
+            title="Fire a novel pattern the MLP has never seen - caught by the Isolation Forest as a zero-day">
+            <Search size={12} /> LAUNCH ZERO-DAY (UNKNOWN)
+          </button>
         </>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 overflow-y-auto pr-1" style={{ maxHeight: "230px" }}>
           {SCENARIOS.map(s => (
             <button key={s.key} onClick={() => fireScenario(s.key)} disabled={loading}
               className="w-full cyber-card p-2 text-left hover:bg-white/5 transition group flex items-center justify-between cursor-pointer">
@@ -366,10 +383,11 @@ export default function SOCCommand() {
   const [fwLoading, setFwLoading] = useState(false)
   const [assets, setAssets] = useState([])
   const [xaiData, setXaiData] = useState(null)
+  const [qigaActions, setQigaActions] = useState([])
   const [chartHistory, setChartHistory] = useState([])
   const [attackDistrib, setAttackDistrib] = useState([])
   const [feedFilter, setFeedFilter] = useState("ALL")
-  const [replayActive, setReplayActive] = useState(true)
+  const [replayActive, setReplayActive] = useState(false)
   const [togglingReplay, setTogglingReplay] = useState(false)
 
   // Firewall modal
@@ -391,13 +409,13 @@ export default function SOCCommand() {
         api.get("/alerts/?limit=40"),
         api.get("/firewall/rules?active_only=true"),
         api.get("/assets/"),
-        api.get("/sim/replay/status").catch(() => ({ data: { enabled: true } }))
+        api.get("/sim/replay/status").catch(() => ({ data: { enabled: false } }))
       ])
       setLogs(logsRes.data || [])
       setAlerts(alertsRes.data || [])
       setFwRules(fwRes.data || [])
       setAssets(assetsRes.data || [])
-      setReplayActive(replayRes.data?.enabled ?? true)
+      setReplayActive(replayRes.data?.enabled ?? false)
 
       const dist = {}
       ;(logsRes.data || []).forEach(l => { dist[l.attack_type] = (dist[l.attack_type] || 0) + 1 })
@@ -414,8 +432,11 @@ export default function SOCCommand() {
   }
 
   useEffect(() => {
-    if (!selectedAttackLogId) return
+    if (!selectedAttackLogId) { setQigaActions([]); return }
     api.get(`/xai/explain/${selectedAttackLogId}`).then(r => setXaiData(r.data)).catch(() => {})
+    api.get(`/recommendations/?attack_log_id=${selectedAttackLogId}&limit=6`)
+      .then(r => setQigaActions(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setQigaActions([]))
   }, [selectedAttackLogId])
 
   useEffect(() => {
@@ -480,6 +501,18 @@ export default function SOCCommand() {
     } catch (e) { console.error(e) }
   }
 
+  // "Mark Mitigated" from the threat drawer passes an AttackLog id; resolve the
+  // matching Alert and acknowledge that (the acknowledge endpoint expects an
+  // Alert id, not an AttackLog id).
+  const acknowledgeByAttackLog = async (attackLogId) => {
+    const match = alerts.find(a => String(a.attack_log_id) === String(attackLogId))
+    if (match) {
+      await acknowledgeAlert(match.id)
+    } else {
+      console.warn(`[SOCCommand] No alert found for attack log #${attackLogId}`)
+    }
+  }
+
   const topSev = liveThreats[0]?.severity || "LOW"
   const THREAT_LEVELS = {
     CRITICAL: { label: "CRITICAL", color: "#ff2d55", cls: "bg-red-950/80 border-red-500/60 shadow-[0_0_12px_rgba(255,45,85,0.3)]" },
@@ -489,7 +522,7 @@ export default function SOCCommand() {
   }
   const tl = THREAT_LEVELS[topSev] || THREAT_LEVELS["LOW"]
 
-  const shap = xaiData?.shap_values || []
+  const shap = xaiData?.top_features || xaiData?.shap_values || []
   const shapData = shap.slice(0, 8).map(s => ({
     feature: (s.feature || "").substring(0, 14),
     value: +(s.shap_value || 0).toFixed(3)
@@ -654,7 +687,7 @@ export default function SOCCommand() {
                       openDrawer(`Threat Telemetry #${t.attack_log_id}`,
                         <AttackDetail log={logs.find(l => l.id === t.attack_log_id) || t}
                           onBlockIp={blockIpDirect}
-                          onAcknowledge={acknowledgeAlert} />
+                          onAcknowledge={acknowledgeByAttackLog} />
                       )
                     }}
                     className="cyber-card px-2.5 py-2 cursor-pointer hover:border-cyan-500/40 hover:bg-white/5 transition group flex items-center justify-between">
@@ -767,18 +800,18 @@ export default function SOCCommand() {
                 </span>
                 <span className="text-[9px] font-mono text-slate-500">Autonomous</span>
               </div>
-              {xaiData?.qiga_actions?.length > 0 ? (
+              {qigaActions.length > 0 ? (
                 <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-                  {(xaiData.qiga_actions || []).slice(0, 6).map((a, i) => (
+                  {qigaActions.slice(0, 6).map((a, i) => (
                     <div key={i} className="flex items-center justify-between text-[10px] font-mono cyber-card p-1.5">
-                      <span className="text-slate-200 truncate">{a.action || a.action_name}</span>
-                      <span className="text-cyber-cyan ml-1 flex-shrink-0 font-bold">{((a.effectiveness || a.score || 0) * 100).toFixed(0)}% Eff</span>
+                      <span className="text-slate-200 truncate">{a.title || a.action || a.action_name}</span>
+                      <span className="text-cyber-cyan ml-1 flex-shrink-0 font-bold">{((a.confidence_score ?? a.effectiveness ?? a.score ?? 0) * 100).toFixed(0)}% Eff</span>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-xs text-slate-500 font-mono text-center">
-                  QIGA response optimization active
+                  {selectedAttackLogId ? "QIGA response optimization active" : "Select threat event to optimize"}
                 </div>
               )}
             </div>

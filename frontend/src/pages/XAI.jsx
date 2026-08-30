@@ -871,9 +871,9 @@ export default function XAI() {
           <PipelineStep
             number="01"
             title="MONITORING"
-            active={Boolean(activeIncident)}
+            active={dataset !== 'Waiting'}
             subtitle={
-              activeIncident
+              dataset !== 'Waiting'
                 ? `Detected ${dataset}`
                 : 'Waiting'
             }
@@ -882,9 +882,9 @@ export default function XAI() {
           <PipelineStep
             number="02"
             title="MLP"
-            active={Boolean(activeIncident)}
+            active={label !== 'Waiting'}
             subtitle={
-              activeIncident
+              label !== 'Waiting'
                 ? `Classified ${label}`
                 : 'Waiting'
             }

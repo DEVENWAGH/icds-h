@@ -88,5 +88,38 @@ export function useAttackSimulator() {
 
   const clearLog = useCallback(() => setLog([]), [])
 
-  return { stage, lastResult, log, loading, fireAttack, fireScenario, clearLog }
+  const fireAnomaly = useCallback(async (severity = 'HIGH') => {
+    if (loading) return
+    setLoading(true)
+    setLastResult(null)
+    setStage('INJECTING')
+    appendLog(`[>>>] Injecting NOVEL / unrecognized traffic pattern...`, 'warn')
+    try {
+      await delay(250)
+      appendLog(`[SYN] Crafting out-of-distribution packet features...`, 'info')
+      await delay(300)
+      setStage('CLASSIFYING')
+      appendLog(`[MLP] Supervised MLP verdict: Normal (pattern never seen)`, 'info')
+      await delay(300)
+      const res = await api.post(`/sim/anomaly?severity=${severity}`)
+      const data = res.data
+      setLastResult(data)
+      setStage('DETECTED')
+      appendLog(`[IF]  Isolation Forest FLAGGED anomaly (score: ${Number(data.anomaly_score).toFixed(4)})`, 'danger')
+      appendLog(`[IF]  Reclassified -> Anomaly (Zero-Day) | Risk ${data.risk_score}/100`, 'warn')
+      appendLog(`[MTR] MITRE: ${data.mitre}`, 'info')
+      await delay(300)
+      setStage('COMPLETE')
+      appendLog(`[OK]  Zero-day surfaced in Live Threat Feed. Log #${data.attack_log_id}.`, 'success')
+    } catch (err) {
+      setStage('ERROR')
+      const msg = err?.response?.data?.detail || err.message || 'Unknown error'
+      appendLog(`[ERR] Zero-day injection failed: ${msg}`, 'danger')
+    } finally {
+      setLoading(false)
+      setTimeout(() => setStage('IDLE'), 3000)
+    }
+  }, [loading])
+
+  return { stage, lastResult, log, loading, fireAttack, fireScenario, fireAnomaly, clearLog }
 }

@@ -357,8 +357,10 @@ class ICDSExplainer:
         )
 
         # ---------------------------------------------------------------------
-        # PERSISTED MLP LABEL MUST MATCH
+        # PERSISTED MLP LABEL SHOULD MATCH (non-fatal)
         # ---------------------------------------------------------------------
+
+        prediction_mismatch = None
 
         if expected_prediction_label:
             expected_normalized = (
@@ -374,11 +376,20 @@ class ICDSExplainer:
             )
 
             if expected_normalized != actual_normalized:
-                raise ValueError(
-                    "SHAP/MLP prediction mismatch for the same AttackLog. "
-                    f"Persisted MLP={expected_normalized}, "
-                    f"replayed MLP={actual_normalized}, "
-                    f"dataset={dataset_source}."
+                # Simulated / injected events use synthetic features that may not
+                # reproduce the exact class through the live MLP. Don't fail the
+                # explanation for that; record the note and explain the model's
+                # actual prediction on these features instead.
+                prediction_mismatch = {
+                    "persisted": expected_normalized,
+                    "replayed": actual_normalized,
+                    "dataset": dataset_source,
+                }
+                print(
+                    "[XAI] Prediction mismatch (non-fatal): "
+                    f"persisted={expected_normalized}, "
+                    f"replayed={actual_normalized}, "
+                    f"dataset={dataset_source}"
                 )
 
         # ---------------------------------------------------------------------
@@ -523,6 +534,7 @@ class ICDSExplainer:
                 str(value)
                 for value in model.classes_
             ],
+            "prediction_mismatch": prediction_mismatch,
         }
 
     # =========================================================================

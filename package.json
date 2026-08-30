@@ -1,0 +1,19 @@
+{
+  "name": "icds-h",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ICDS-H - Intelligent Cyber Defense System for Healthcare (run scripts)",
+  "scripts": {
+    "frontend": "yarn --cwd frontend dev",
+    "backend": "cd backend && python -m uvicorn main:app --reload --port 8000",
+    "clear": "cd backend && python clear_logs.py",
+    "dev": "concurrently -k -n BACKEND,FRONTEND -c cyan,magenta \"yarn backend\" \"yarn frontend\"",
+    "start": "yarn dev",
+    "setup:frontend": "yarn --cwd frontend install",
+    "setup:backend": "python -m pip install -r backend/requirements.txt",
+    "setup": "yarn setup:backend && yarn setup:frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
