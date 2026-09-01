@@ -111,7 +111,7 @@ export default function Incidents() {
                   <tr 
                     key={inc.id}
                     onClick={() => setSelectedAttackLogId(inc.attack_log_id)}
-                    className={`border-b border-cyber-border/30 cursor-pointer transition-colors ${isSelected ? 'bg-cyber-cyan/10 border-l-2 border-l-cyber-cyan' : 'hover:bg-white/2'}`}
+                    className={`border-b border-cyber-border/30 cursor-pointer transition-colors ${isSelected ? 'bg-cyber-cyan/10 border-l-2 border-l-cyber-cyan' : 'hover:bg-white/[0.04]'}`}
                   >
                     <td className="px-3 py-3 font-bold text-cyber-cyan whitespace-nowrap">{inc.incidentId}</td>
                     <td className="px-3 py-3 font-bold text-white whitespace-nowrap">{inc.attack_type}</td>

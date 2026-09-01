@@ -316,7 +316,7 @@ const ActionRow = ({
       className={`border-b transition-all ${
         selected
           ? 'border-cyber-cyan/40 bg-cyber-cyan/5'
-          : 'border-cyber-border/30 hover:bg-white/2'
+          : 'border-cyber-border/30 hover:bg-white/[0.04] transition-colors'
       }`}
     >
 

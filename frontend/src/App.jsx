@@ -35,6 +35,14 @@ function SOCEngineBootstrap() {
   return null
 }
 
+function AppIndexRedirect() {
+  const user = useAuthStore((s) => s.user)
+  if (user?.role === 'clinical') {
+    return <Navigate to="/app/dashboard" replace />
+  }
+  return <Navigate to="/app/command" replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -44,7 +52,7 @@ export default function App() {
         
         {/* Full-featured App layout routes */}
         <Route path="/app" element={<PrivateRoute><Layout /></PrivateRoute>}>
-          <Route index element={<Navigate to="/app/command" replace />} />
+          <Route index element={<AppIndexRedirect />} />
           <Route path="command" element={<SOCCommand />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="monitoring" element={<Monitoring />} />
@@ -58,7 +66,7 @@ export default function App() {
           <Route path="memory" element={<Memory />} />
           <Route path="reports" element={<Reports />} />
           <Route path="admin" element={<Admin />} />
-          <Route path="*" element={<Navigate to="/app/command" replace />} />
+          <Route path="*" element={<AppIndexRedirect />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

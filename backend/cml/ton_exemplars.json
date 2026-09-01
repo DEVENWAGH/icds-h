@@ -1,0 +1,4022 @@
+{
+  "dos": [
+    {
+      "src_port": 9,
+      "dst_port": 9,
+      "proto": "tcp",
+      "duration": 0.310135,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 85,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 9,
+      "dst_port": 9,
+      "proto": "tcp",
+      "duration": 0.402129,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 100,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 9,
+      "dst_port": 9,
+      "proto": "tcp",
+      "duration": 0.300084,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 100,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 9,
+      "dst_port": 9,
+      "proto": "tcp",
+      "duration": 0.317941,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 100,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 9,
+      "dst_port": 9,
+      "proto": "tcp",
+      "duration": 0.344682,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 200,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.334366,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 200,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 2000000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 100000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 110000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 120000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 130000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 140000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 150000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 160000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 170000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 180000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 190000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 200000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 340000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 360000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 510000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 680000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000135,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000137,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.00014,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000141,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000142,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000143,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000144,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000146,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000147,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000148,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.00015,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000152,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000153,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000154,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000155,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000156,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000157,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 11,
+      "dst_port": 11,
+      "proto": "tcp",
+      "duration": 0.000158,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    }
+  ],
+  "ddos": [
+    {
+      "src_port": 39180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.254189,
+      "src_bytes": 1286281.0,
+      "dst_bytes": 749633.0,
+      "src_pkts": 4015,
+      "dst_pkts": 1923
+    },
+    {
+      "src_port": 39182,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.257114,
+      "src_bytes": 1343869.0,
+      "dst_bytes": 784744.0,
+      "src_pkts": 3978,
+      "dst_pkts": 2028
+    },
+    {
+      "src_port": 39184,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.276244,
+      "src_bytes": 1197748.0,
+      "dst_bytes": 701307.0,
+      "src_pkts": 3766,
+      "dst_pkts": 1729
+    },
+    {
+      "src_port": 39186,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.262629,
+      "src_bytes": 1305914.0,
+      "dst_bytes": 762793.0,
+      "src_pkts": 3967,
+      "dst_pkts": 1941
+    },
+    {
+      "src_port": 39188,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.279137,
+      "src_bytes": 1219202.0,
+      "dst_bytes": 712529.0,
+      "src_pkts": 3744,
+      "dst_pkts": 1782
+    },
+    {
+      "src_port": 39192,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.272364,
+      "src_bytes": 1214243.0,
+      "dst_bytes": 709877.0,
+      "src_pkts": 3756,
+      "dst_pkts": 1751
+    },
+    {
+      "src_port": 39196,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.266058,
+      "src_bytes": 1209072.0,
+      "dst_bytes": 703166.0,
+      "src_pkts": 3763,
+      "dst_pkts": 1715
+    },
+    {
+      "src_port": 39198,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.261526,
+      "src_bytes": 1223664.0,
+      "dst_bytes": 713081.0,
+      "src_pkts": 3890,
+      "dst_pkts": 1840
+    },
+    {
+      "src_port": 39200,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1123.273519,
+      "src_bytes": 1196555.0,
+      "dst_bytes": 698300.0,
+      "src_pkts": 3768,
+      "dst_pkts": 1708
+    },
+    {
+      "src_port": 38838,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1286.631354,
+      "src_bytes": 1064149.0,
+      "dst_bytes": 620426.0,
+      "src_pkts": 3657,
+      "dst_pkts": 1481
+    },
+    {
+      "src_port": 38840,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1286.969975,
+      "src_bytes": 1001572.0,
+      "dst_bytes": 584550.0,
+      "src_pkts": 3436,
+      "dst_pkts": 1391
+    },
+    {
+      "src_port": 38842,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1287.173215,
+      "src_bytes": 1196997.0,
+      "dst_bytes": 697950.0,
+      "src_pkts": 4090,
+      "dst_pkts": 1685
+    },
+    {
+      "src_port": 38844,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1286.616343,
+      "src_bytes": 1123787.0,
+      "dst_bytes": 654966.0,
+      "src_pkts": 3836,
+      "dst_pkts": 1588
+    },
+    {
+      "src_port": 38848,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1286.815458,
+      "src_bytes": 1178702.0,
+      "dst_bytes": 687617.0,
+      "src_pkts": 4032,
+      "dst_pkts": 1667
+    },
+    {
+      "src_port": 38850,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1287.170393,
+      "src_bytes": 1211183.0,
+      "dst_bytes": 706450.0,
+      "src_pkts": 4237,
+      "dst_pkts": 1740
+    },
+    {
+      "src_port": 38852,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1286.812277,
+      "src_bytes": 1036995.0,
+      "dst_bytes": 604190.0,
+      "src_pkts": 3480,
+      "dst_pkts": 1426
+    },
+    {
+      "src_port": 38854,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1287.151132,
+      "src_bytes": 1023053.0,
+      "dst_bytes": 596799.0,
+      "src_pkts": 3474,
+      "dst_pkts": 1418
+    },
+    {
+      "src_port": 38856,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1287.154408,
+      "src_bytes": 1106012.0,
+      "dst_bytes": 645067.0,
+      "src_pkts": 3793,
+      "dst_pkts": 1543
+    },
+    {
+      "src_port": 38858,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1286.806898,
+      "src_bytes": 1226303.0,
+      "dst_bytes": 715646.0,
+      "src_pkts": 4177,
+      "dst_pkts": 1743
+    },
+    {
+      "src_port": 38860,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 1287.161009,
+      "src_bytes": 1086613.0,
+      "dst_bytes": 633594.0,
+      "src_pkts": 3776,
+      "dst_pkts": 1535
+    },
+    {
+      "src_port": 41192,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 117.82348,
+      "src_bytes": 854.0,
+      "dst_bytes": 7324.0,
+      "src_pkts": 10,
+      "dst_pkts": 23
+    },
+    {
+      "src_port": 33687,
+      "dst_port": 53,
+      "proto": "udp",
+      "duration": 130000.0,
+      "src_bytes": 39.0,
+      "dst_bytes": 39.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 41194,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 60.220944,
+      "src_bytes": 550.0,
+      "dst_bytes": 1791.0,
+      "src_pkts": 10,
+      "dst_pkts": 9
+    },
+    {
+      "src_port": 41198,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.870404,
+      "src_bytes": 534.0,
+      "dst_bytes": 1791.0,
+      "src_pkts": 10,
+      "dst_pkts": 9
+    },
+    {
+      "src_port": 41200,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 414.165308,
+      "src_bytes": 1223831185.0,
+      "dst_bytes": 1223982510.0,
+      "src_pkts": 10,
+      "dst_pkts": 21
+    },
+    {
+      "src_port": 41204,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.60088,
+      "src_bytes": 518.0,
+      "dst_bytes": 1727.0,
+      "src_pkts": 10,
+      "dst_pkts": 8
+    },
+    {
+      "src_port": 41208,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.268146,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41210,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.210653,
+      "src_bytes": 502.0,
+      "dst_bytes": 1727.0,
+      "src_pkts": 9,
+      "dst_pkts": 9
+    },
+    {
+      "src_port": 41212,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.167934,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41214,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.186649,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41216,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.162746,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41218,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.379995,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41220,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.391213,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41222,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 7000000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 2,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 41224,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 117.124499,
+      "src_bytes": 746.0,
+      "dst_bytes": 7324.0,
+      "src_pkts": 10,
+      "dst_pkts": 22
+    },
+    {
+      "src_port": 41226,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.26282,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41228,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.000407,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 2,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 41230,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.169689,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41232,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.121904,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 41234,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 61.120408,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    }
+  ],
+  "ransomware": [
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 37242,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42438,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 123,
+      "dst_port": 52589,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 123,
+      "dst_port": 50029,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 123,
+      "dst_port": 49842,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 123,
+      "dst_port": 56197,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 123,
+      "dst_port": 57541,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 33017,
+      "dst_port": 135,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34277,
+      "dst_port": 445,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34277,
+      "dst_port": 445,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34277,
+      "dst_port": 445,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34277,
+      "dst_port": 445,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34277,
+      "dst_port": 445,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34277,
+      "dst_port": 445,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    }
+  ],
+  "backdoor": [
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000102,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000148,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000113,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.00013,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.008403,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000137,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000143,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.0002,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 9000000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000113,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000204,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 180000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.0001,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000562,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000121,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000127,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.00015,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 230000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000127,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000145,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000127,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000155,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.00019,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 940000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 950000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000107,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000103,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000106,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000123,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49180,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000197,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000127,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.028255,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000129,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.00031,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000534,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 300000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.00014,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000318,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 8000000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 49181,
+      "dst_port": 8080,
+      "proto": "tcp",
+      "duration": 0.000121,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    }
+  ],
+  "injection": [
+    {
+      "src_port": 45120,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 68.427697,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45122,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 68.427659,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45180,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 68.142876,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45190,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 68.086595,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45194,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 68.07911,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45254,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 67.792977,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45268,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 67.738279,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45270,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 67.737156,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 45334,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 67.447495,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 41514,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.667493,
+      "src_bytes": 192.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 7,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41516,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.320149,
+      "src_bytes": 347.0,
+      "dst_bytes": 11979.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41518,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.330875,
+      "src_bytes": 350.0,
+      "dst_bytes": 11979.0,
+      "src_pkts": 7,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41520,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.333674,
+      "src_bytes": 371.0,
+      "dst_bytes": 11979.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41522,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.340688,
+      "src_bytes": 374.0,
+      "dst_bytes": 11979.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41524,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.420806,
+      "src_bytes": 238.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 7,
+      "dst_pkts": 13
+    },
+    {
+      "src_port": 41526,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.406343,
+      "src_bytes": 238.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41528,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.399505,
+      "src_bytes": 212.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41530,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.316378,
+      "src_bytes": 212.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41532,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.306572,
+      "src_bytes": 221.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41534,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.302357,
+      "src_bytes": 221.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41536,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.302793,
+      "src_bytes": 250.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41538,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.291925,
+      "src_bytes": 250.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41540,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.303893,
+      "src_bytes": 244.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41542,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.295158,
+      "src_bytes": 244.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41544,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.295272,
+      "src_bytes": 242.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41546,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.290401,
+      "src_bytes": 242.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41548,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.283256,
+      "src_bytes": 335.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 7,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41550,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.275347,
+      "src_bytes": 335.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41552,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.290189,
+      "src_bytes": 456.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41554,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.290283,
+      "src_bytes": 430.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41556,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.285171,
+      "src_bytes": 439.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41558,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.28626,
+      "src_bytes": 468.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41560,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.28911,
+      "src_bytes": 462.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41562,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.287749,
+      "src_bytes": 460.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41564,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.276861,
+      "src_bytes": 540.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 8,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41566,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.283924,
+      "src_bytes": 514.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41568,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.282248,
+      "src_bytes": 523.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 5,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41570,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.386789,
+      "src_bytes": 552.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41572,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.281238,
+      "src_bytes": 546.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 41574,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.271179,
+      "src_bytes": 544.0,
+      "dst_bytes": 12183.0,
+      "src_pkts": 6,
+      "dst_pkts": 12
+    }
+  ],
+  "password": [
+    {
+      "src_port": 33966,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 118.154006,
+      "src_bytes": 576.0,
+      "dst_bytes": 768.0,
+      "src_pkts": 19,
+      "dst_pkts": 16
+    },
+    {
+      "src_port": 37814,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 7.761997,
+      "src_bytes": 446.0,
+      "dst_bytes": 205.0,
+      "src_pkts": 5,
+      "dst_pkts": 4
+    },
+    {
+      "src_port": 34336,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 3.583183,
+      "src_bytes": 81.0,
+      "dst_bytes": 215.0,
+      "src_pkts": 18,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 34650,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 10.095961,
+      "src_bytes": 81.0,
+      "dst_bytes": 188.0,
+      "src_pkts": 17,
+      "dst_pkts": 17
+    },
+    {
+      "src_port": 43604,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 9.86,
+      "src_bytes": 81.0,
+      "dst_bytes": 188.0,
+      "src_pkts": 17,
+      "dst_pkts": 16
+    },
+    {
+      "src_port": 48404,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 3000000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 58680,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.000289,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 59376,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.000568,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 48410,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 880000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 48416,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 110000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 58690,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 420000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 58696,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 180000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 59386,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.00019,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 59392,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.000172,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34350,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 3.550409,
+      "src_bytes": 90.0,
+      "dst_bytes": 215.0,
+      "src_pkts": 18,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 48430,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.000108,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 58704,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 170000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 58710,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 160000.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 59400,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.000207,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 59406,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 0.000278,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 34368,
+      "dst_port": 21,
+      "proto": "tcp",
+      "duration": 3.599014,
+      "src_bytes": 88.0,
+      "dst_bytes": 215.0,
+      "src_pkts": 18,
+      "dst_pkts": 12
+    },
+    {
+      "src_port": 37858,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.015686,
+      "src_bytes": 161.0,
+      "dst_bytes": 2009.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 37860,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.013108,
+      "src_bytes": 161.0,
+      "dst_bytes": 2009.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45744,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.005271,
+      "src_bytes": 147.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45746,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002456,
+      "src_bytes": 155.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45748,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002319,
+      "src_bytes": 155.0,
+      "dst_bytes": 653.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45750,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002704,
+      "src_bytes": 155.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45752,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002056,
+      "src_bytes": 155.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45754,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002917,
+      "src_bytes": 152.0,
+      "dst_bytes": 3558.0,
+      "src_pkts": 5,
+      "dst_pkts": 7
+    },
+    {
+      "src_port": 45756,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.011796,
+      "src_bytes": 155.0,
+      "dst_bytes": 216.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45758,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.001752,
+      "src_bytes": 155.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45760,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002344,
+      "src_bytes": 155.0,
+      "dst_bytes": 649.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45762,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.001659,
+      "src_bytes": 155.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45764,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.001817,
+      "src_bytes": 155.0,
+      "dst_bytes": 651.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45766,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.001381,
+      "src_bytes": 153.0,
+      "dst_bytes": 543.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45768,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.031119,
+      "src_bytes": 168.0,
+      "dst_bytes": 1919.0,
+      "src_pkts": 5,
+      "dst_pkts": 6
+    },
+    {
+      "src_port": 45770,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002376,
+      "src_bytes": 154.0,
+      "dst_bytes": 501.0,
+      "src_pkts": 5,
+      "dst_pkts": 5
+    },
+    {
+      "src_port": 45772,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002704,
+      "src_bytes": 167.0,
+      "dst_bytes": 2875.0,
+      "src_pkts": 5,
+      "dst_pkts": 6
+    },
+    {
+      "src_port": 45774,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002542,
+      "src_bytes": 167.0,
+      "dst_bytes": 2924.0,
+      "src_pkts": 5,
+      "dst_pkts": 7
+    },
+    {
+      "src_port": 45776,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.002563,
+      "src_bytes": 167.0,
+      "dst_bytes": 2813.0,
+      "src_pkts": 5,
+      "dst_pkts": 6
+    }
+  ],
+  "scanning": [
+    {
+      "src_port": 42908,
+      "dst_port": 2046,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42908,
+      "dst_port": 7435,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42908,
+      "dst_port": 1641,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 2046,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 2004,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42911,
+      "dst_port": 992,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42987,
+      "dst_port": 1025,
+      "proto": "tcp",
+      "duration": 0.004096,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 44919,
+      "dst_port": 898,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 49508,
+      "dst_port": 9050,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 49644,
+      "dst_port": 993,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50567,
+      "dst_port": 1106,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50567,
+      "dst_port": 1002,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50567,
+      "dst_port": 8899,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50568,
+      "dst_port": 1106,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50571,
+      "dst_port": 4005,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 35793,
+      "dst_port": 3690,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 38138,
+      "dst_port": 10566,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 38140,
+      "dst_port": 9415,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50948,
+      "dst_port": 1322,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50948,
+      "dst_port": 8194,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 50955,
+      "dst_port": 1092,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 58550,
+      "dst_port": 2718,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 35485,
+      "dst_port": 8008,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 35485,
+      "dst_port": 898,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 54770,
+      "dst_port": 16080,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 54772,
+      "dst_port": 14442,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 61172,
+      "dst_port": 631,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 61174,
+      "dst_port": 3005,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 61181,
+      "dst_port": 57294,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 61342,
+      "dst_port": 9618,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 14000,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 1761,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 3369,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 6100,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 6789,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42909,
+      "dst_port": 903,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42912,
+      "dst_port": 992,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 44919,
+      "dst_port": 49176,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 49503,
+      "dst_port": 1000,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 49509,
+      "dst_port": 9050,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    }
+  ],
+  "xss": [
+    {
+      "src_port": 33108,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33114,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33118,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33122,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33140,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33142,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33186,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33200,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33274,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33288,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34482,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 35482,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 36280,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 3.119796,
+      "src_bytes": 2734.0,
+      "dst_bytes": 1348.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 37382,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 39082,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 4.046354,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 2,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 39472,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 40262,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 41046,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 41048,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 41872,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 42730,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 11.14071,
+      "src_bytes": 2215.0,
+      "dst_bytes": 1189.0,
+      "src_pkts": 5,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 43106,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 43136,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 43170,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.110258,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 1
+    },
+    {
+      "src_port": 43300,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 44222,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 4.275486,
+      "src_bytes": 0.0,
+      "dst_bytes": 1340.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 44342,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 44578,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 44724,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 4.220755,
+      "src_bytes": 1777.0,
+      "dst_bytes": 1042.0,
+      "src_pkts": 2,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 44756,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 44776,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 44970,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 9.119544,
+      "src_bytes": 2992.0,
+      "dst_bytes": 1448.0,
+      "src_pkts": 7,
+      "dst_pkts": 4
+    },
+    {
+      "src_port": 44976,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 11.16762,
+      "src_bytes": 2389.0,
+      "dst_bytes": 1248.0,
+      "src_pkts": 5,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 44980,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 9.262562,
+      "src_bytes": 2191.0,
+      "dst_bytes": 1180.0,
+      "src_pkts": 3,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 44982,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 6.505807,
+      "src_bytes": 2053.0,
+      "dst_bytes": 1134.0,
+      "src_pkts": 4,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 45132,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 5.962488,
+      "src_bytes": 5608.0,
+      "dst_bytes": 2320.0,
+      "src_pkts": 14,
+      "dst_pkts": 7
+    },
+    {
+      "src_port": 45826,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 46152,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 46160,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 46526,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 1.990673,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 2,
+      "dst_pkts": 0
+    }
+  ],
+  "mitm": [
+    {
+      "src_port": 39080,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 69.788831,
+      "src_bytes": 629.0,
+      "dst_bytes": 552.0,
+      "src_pkts": 28,
+      "dst_pkts": 14
+    },
+    {
+      "src_port": 40058,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 68.758765,
+      "src_bytes": 629.0,
+      "dst_bytes": 552.0,
+      "src_pkts": 28,
+      "dst_pkts": 14
+    },
+    {
+      "src_port": 46164,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 104.783963,
+      "src_bytes": 905.0,
+      "dst_bytes": 828.0,
+      "src_pkts": 40,
+      "dst_pkts": 20
+    },
+    {
+      "src_port": 46512,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 37.859756,
+      "src_bytes": 399.0,
+      "dst_bytes": 399.0,
+      "src_pkts": 19,
+      "dst_pkts": 11
+    },
+    {
+      "src_port": 46560,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 104.783732,
+      "src_bytes": 905.0,
+      "dst_bytes": 828.0,
+      "src_pkts": 40,
+      "dst_pkts": 20
+    },
+    {
+      "src_port": 44180,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 80.762517,
+      "src_bytes": 721.0,
+      "dst_bytes": 644.0,
+      "src_pkts": 32,
+      "dst_pkts": 17
+    },
+    {
+      "src_port": 33110,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 70.772404,
+      "src_bytes": 629.0,
+      "dst_bytes": 583.0,
+      "src_pkts": 29,
+      "dst_pkts": 15
+    },
+    {
+      "src_port": 40032,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 70.770961,
+      "src_bytes": 629.0,
+      "dst_bytes": 552.0,
+      "src_pkts": 28,
+      "dst_pkts": 15
+    },
+    {
+      "src_port": 40076,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 70.775789,
+      "src_bytes": 629.0,
+      "dst_bytes": 552.0,
+      "src_pkts": 28,
+      "dst_pkts": 14
+    },
+    {
+      "src_port": 42320,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 70.771532,
+      "src_bytes": 629.0,
+      "dst_bytes": 583.0,
+      "src_pkts": 30,
+      "dst_pkts": 16
+    },
+    {
+      "src_port": 42706,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 80.761403,
+      "src_bytes": 721.0,
+      "dst_bytes": 675.0,
+      "src_pkts": 32,
+      "dst_pkts": 17
+    },
+    {
+      "src_port": 60684,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 52.754456,
+      "src_bytes": 491.0,
+      "dst_bytes": 414.0,
+      "src_pkts": 22,
+      "dst_pkts": 11
+    },
+    {
+      "src_port": 60872,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 38.750409,
+      "src_bytes": 399.0,
+      "dst_bytes": 353.0,
+      "src_pkts": 20,
+      "dst_pkts": 11
+    },
+    {
+      "src_port": 55195,
+      "dst_port": 53,
+      "proto": "udp",
+      "duration": 5.264492,
+      "src_bytes": 164.0,
+      "dst_bytes": 1182.0,
+      "src_pkts": 4,
+      "dst_pkts": 3
+    },
+    {
+      "src_port": 36990,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 21.588475,
+      "src_bytes": 66733.0,
+      "dst_bytes": 6492.0,
+      "src_pkts": 61,
+      "dst_pkts": 40
+    },
+    {
+      "src_port": 43388,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 21.858769,
+      "src_bytes": 1216.0,
+      "dst_bytes": 14863.0,
+      "src_pkts": 26,
+      "dst_pkts": 25
+    },
+    {
+      "src_port": 35214,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 20.902839,
+      "src_bytes": 1177.0,
+      "dst_bytes": 6316.0,
+      "src_pkts": 21,
+      "dst_pkts": 18
+    },
+    {
+      "src_port": 40046,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 18.408287,
+      "src_bytes": 1186.0,
+      "dst_bytes": 4530.0,
+      "src_pkts": 21,
+      "dst_pkts": 20
+    },
+    {
+      "src_port": 40280,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 18.691234,
+      "src_bytes": 1295.0,
+      "dst_bytes": 7165.0,
+      "src_pkts": 19,
+      "dst_pkts": 20
+    },
+    {
+      "src_port": 41930,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 16.480538,
+      "src_bytes": 3606.0,
+      "dst_bytes": 4849.0,
+      "src_pkts": 15,
+      "dst_pkts": 11
+    },
+    {
+      "src_port": 41968,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 16.364743,
+      "src_bytes": 2436.0,
+      "dst_bytes": 7214.0,
+      "src_pkts": 15,
+      "dst_pkts": 13
+    },
+    {
+      "src_port": 35412,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 14.49366,
+      "src_bytes": 3920.0,
+      "dst_bytes": 4001.0,
+      "src_pkts": 38,
+      "dst_pkts": 40
+    },
+    {
+      "src_port": 36566,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 14.403172,
+      "src_bytes": 1641.0,
+      "dst_bytes": 4899.0,
+      "src_pkts": 20,
+      "dst_pkts": 22
+    },
+    {
+      "src_port": 36568,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.459657,
+      "src_bytes": 1595.0,
+      "dst_bytes": 4900.0,
+      "src_pkts": 21,
+      "dst_pkts": 20
+    },
+    {
+      "src_port": 47776,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 13.906289,
+      "src_bytes": 4618.0,
+      "dst_bytes": 6528.0,
+      "src_pkts": 16,
+      "dst_pkts": 14
+    },
+    {
+      "src_port": 48144,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.077685,
+      "src_bytes": 808.0,
+      "dst_bytes": 263.0,
+      "src_pkts": 12,
+      "dst_pkts": 8
+    },
+    {
+      "src_port": 48146,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.089426,
+      "src_bytes": 808.0,
+      "dst_bytes": 263.0,
+      "src_pkts": 11,
+      "dst_pkts": 8
+    },
+    {
+      "src_port": 59338,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 11.85712,
+      "src_bytes": 2669.0,
+      "dst_bytes": 318685.0,
+      "src_pkts": 65,
+      "dst_pkts": 225
+    },
+    {
+      "src_port": 48158,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 10.821551,
+      "src_bytes": 920.0,
+      "dst_bytes": 3152.0,
+      "src_pkts": 16,
+      "dst_pkts": 15
+    },
+    {
+      "src_port": 32928,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.085242,
+      "src_bytes": 503.0,
+      "dst_bytes": 7124.0,
+      "src_pkts": 14,
+      "dst_pkts": 13
+    },
+    {
+      "src_port": 33402,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 0.327656,
+      "src_bytes": 901.0,
+      "dst_bytes": 4569.0,
+      "src_pkts": 17,
+      "dst_pkts": 15
+    },
+    {
+      "src_port": 60676,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 3.664302,
+      "src_bytes": 1947.0,
+      "dst_bytes": 18490.0,
+      "src_pkts": 21,
+      "dst_pkts": 29
+    },
+    {
+      "src_port": 57456,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 293.766464,
+      "src_bytes": 2304.0,
+      "dst_bytes": 3072.0,
+      "src_pkts": 48,
+      "dst_pkts": 38
+    },
+    {
+      "src_port": 57458,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 293.409078,
+      "src_bytes": 2304.0,
+      "dst_bytes": 3072.0,
+      "src_pkts": 47,
+      "dst_pkts": 38
+    },
+    {
+      "src_port": 8,
+      "dst_port": 0,
+      "proto": "icmp",
+      "duration": 25.515015,
+      "src_bytes": 1456.0,
+      "dst_bytes": 1456.0,
+      "src_pkts": 26,
+      "dst_pkts": 26
+    },
+    {
+      "src_port": 41136,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 182.453928,
+      "src_bytes": 4148.0,
+      "dst_bytes": 1807.0,
+      "src_pkts": 34,
+      "dst_pkts": 27
+    },
+    {
+      "src_port": 57464,
+      "dst_port": 80,
+      "proto": "tcp",
+      "duration": 344.589446,
+      "src_bytes": 2592.0,
+      "dst_bytes": 3456.0,
+      "src_pkts": 53,
+      "dst_pkts": 43
+    },
+    {
+      "src_port": 41870,
+      "dst_port": 443,
+      "proto": "tcp",
+      "duration": 181.028915,
+      "src_bytes": 32954.0,
+      "dst_bytes": 3064.0,
+      "src_pkts": 42,
+      "dst_pkts": 26
+    },
+    {
+      "src_port": 8,
+      "dst_port": 0,
+      "proto": "icmp",
+      "duration": 7.909107,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 834
+    },
+    {
+      "src_port": 8,
+      "dst_port": 0,
+      "proto": "icmp",
+      "duration": 18.139228,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 370,
+      "dst_pkts": 18722
+    }
+  ],
+  "normal": [
+    {
+      "src_port": 47260,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 46608,
+      "dst_port": 53,
+      "proto": "udp",
+      "duration": 0.000549,
+      "src_bytes": 0.0,
+      "dst_bytes": 298.0,
+      "src_pkts": 0,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 33269,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 37498,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 41303,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 52072,
+      "dst_port": 53,
+      "proto": "udp",
+      "duration": 0.000499,
+      "src_bytes": 0.0,
+      "dst_bytes": 298.0,
+      "src_pkts": 0,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 57400,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 58180,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 47671,
+      "dst_port": 53,
+      "proto": "udp",
+      "duration": 0.000331,
+      "src_bytes": 0.0,
+      "dst_bytes": 298.0,
+      "src_pkts": 0,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 60036,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 53946,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 35073,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 47248,
+      "dst_port": 53,
+      "proto": "udp",
+      "duration": 0.000301,
+      "src_bytes": 0.0,
+      "dst_bytes": 298.0,
+      "src_pkts": 0,
+      "dst_pkts": 2
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 57971,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 34296,
+      "dst_port": 10502,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 40408,
+      "dst_port": 15600,
+      "proto": "udp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 1,
+      "dst_pkts": 0
+    },
+    {
+      "src_port": 1880,
+      "dst_port": 51782,
+      "proto": "tcp",
+      "duration": 0.0,
+      "src_bytes": 0.0,
+      "dst_bytes": 0.0,
+      "src_pkts": 0,
+      "dst_pkts": 0
+    }
+  ]
+}

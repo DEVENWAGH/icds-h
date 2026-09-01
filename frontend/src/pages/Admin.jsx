@@ -89,7 +89,7 @@ export default function Admin() {
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id} className="border-b border-cyber-border/30 hover:bg-white/2">
+                <tr key={u.id} className="border-b border-cyber-border/30 hover:bg-white/[0.04] transition-colors">
                   <td className="px-4 py-3 text-gray-500">#{u.id}</td>
                   <td className="px-4 py-3 text-white font-bold">{u.full_name}</td>
                   <td className="px-4 py-3 text-cyber-cyan">{u.email}</td>

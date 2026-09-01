@@ -598,136 +598,35 @@ class ICDSExplainer:
         num_samples: int = 20,
     ):
         """
-        Build dataset-specific background rows using the same preprocessing
-        as the MLP.
+        Build dataset-specific background rows using pre-saved pkl artifacts
+        or synthetic fallback. No unified_dataset.csv dependency.
         """
+        bg_files = {
+            "TON_IoT": "shap_background_ton.pkl",
+            "PhiUSIIL": "shap_background_phi.pkl",
+            "CERT": "shap_background_cert.pkl",
+        }
 
-        csv_path = os.path.abspath(
-            os.path.join(
-                MODEL_DIR,
-                "..",
-                "dataset",
-                "unified_dataset.csv",
-            )
-        )
+        bg_file = bg_files.get(dataset_source)
+        if bg_file:
+            bg_path = os.path.join(MODEL_DIR, bg_file)
+            if os.path.exists(bg_path):
+                try:
+                    loaded = joblib.load(bg_path)
+                    if isinstance(loaded, np.ndarray) and len(loaded) > 0:
+                        return loaded[:num_samples]
+                except Exception as e:
+                    print(f"[XAI] Failed to load background {bg_path}: {e}")
 
-        raw_background = []
-
-        try:
-            with open(
-                csv_path,
-                "r",
-                encoding="utf-8",
-                errors="ignore",
-            ) as file:
-
-                reader = csv.DictReader(
-                    file
-                )
-
-                for row in reader:
-
-                    if (
-                        row.get(
-                            "dataset_source"
-                        )
-                        != dataset_source
-                    ):
-                        continue
-
-                    try:
-
-                        if dataset_source == "TON_IoT":
-                            features, _ = (
-                                self._extract_ton_features(
-                                    row
-                                )
-                            )
-
-                        elif dataset_source == "PhiUSIIL":
-                            features, _ = (
-                                self._extract_phi_features(
-                                    row
-                                )
-                            )
-
-                        elif dataset_source == "CERT":
-                            features, _ = (
-                                self._extract_cert_features(
-                                    row
-                                )
-                            )
-
-                        else:
-                            continue
-
-                        raw_background.append(
-                            features
-                        )
-
-                    except Exception:
-                        continue
-
-                    if len(
-                        raw_background
-                    ) >= num_samples:
-                        break
-
-        except Exception as error:
-            print(
-                f"[XAI] Background loading failed "
-                f"for {dataset_source}: {error}"
-            )
-
-        # ---------------------------------------------------------------------
         # Fallback background
-        # ---------------------------------------------------------------------
+        feature_count = {
+            "TON_IoT": 8,
+            "PhiUSIIL": 10,
+            "CERT": 7,
+        }.get(dataset_source, 8)
 
-        if not raw_background:
-
-            feature_count = {
-                "TON_IoT": 8,
-                "PhiUSIIL": 10,
-                "CERT": 7,
-            }[dataset_source]
-
-            raw_background = [
-                [
-                    0.0
-                    for _ in range(
-                        feature_count
-                    )
-                ]
-            ]
-
-        background_array = np.asarray(
-            raw_background,
-            dtype=float,
-        )
-
-        scaler = self.scalers[
-            dataset_source
-        ]
-
-        try:
-            return scaler.transform(
-                background_array
-            )
-
-        except Exception as error:
-
-            print(
-                f"[XAI] Background scaling failed "
-                f"for {dataset_source}: {error}"
-            )
-
-            return np.zeros(
-                (
-                    1,
-                    background_array.shape[1],
-                ),
-                dtype=float,
-            )
+        raw_background = np.zeros((1, feature_count), dtype=float)
+        return raw_background
 
     # =========================================================================
     # FEATURE EXTRACTION
@@ -1262,24 +1161,26 @@ class ICDSExplainer:
             label
         ).strip().lower()
 
-        if value == "ddos":
-            return "DDoS"
+        mapping = {
+            "ddos": "DDoS",
+            "dos": "DoS",
+            "ransomware": "Ransomware",
+            "backdoor": "Backdoor",
+            "injection": "Injection",
+            "password": "Password Attack",
+            "scanning": "Scanning",
+            "xss": "XSS",
+            "mitm": "MITM",
+            "phishing": "Phishing",
+            "insider": "Insider Threat",
+            "insider threat": "Insider Threat",
+            "insider_threat": "Insider Threat",
+            "normal": "Normal",
+            "benign": "Normal",
+        }
 
-        if value == "ransomware":
-            return "Ransomware"
-
-        if value == "phishing":
-            return "Phishing"
-
-        if value in {
-            "insider",
-            "insider threat",
-            "insider_threat",
-        }:
-            return "Insider Threat"
-
-        if value == "normal":
-            return "Normal"
+        if value in mapping:
+            return mapping[value]
 
         # Do NOT silently convert an unknown class to Normal.
         return str(label)

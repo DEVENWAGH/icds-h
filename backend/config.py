@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     
     # Environment and Simulation settings
-    DATASET_REPLAY_MODE: bool = True
+    DATASET_REPLAY_MODE: bool = False
     REPLAY_INTERVAL_SECONDS: int = 4
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     CAPTURE_BPF_FILTER: str = "tcp or udp"
     CAPTURE_BATCH_SIZE: int = 10
 
-    # Auto-Response settings (no manual approval needed)
-    AUTO_RESPONSE_ENABLED: bool = True
+    # Auto-Response settings (no manual approval needed when True)
+    AUTO_RESPONSE_ENABLED: bool = False
     AUTO_RESPONSE_MIN_SEVERITY: str = "HIGH"
 
     # Admin Credentials

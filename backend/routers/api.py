@@ -4,6 +4,8 @@ from fastapi import (
     HTTPException,
     BackgroundTasks,
     Query,
+    File,
+    UploadFile,
 )
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -2093,6 +2095,57 @@ def approve_recommendation(
     }
 
 
+@rec_router.patch("/{rec_id}/reject")
+@rec_router.post("/{rec_id}/reject")
+def reject_recommendation(
+    rec_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    recommendation = db.query(models.Recommendation).filter(models.Recommendation.id == rec_id).first()
+    if not recommendation:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+
+    recommendation.status = "REJECTED"
+    recommendation.is_approved = False
+    db.commit()
+
+    # Find the next pending recommendation for this attack log
+    next_rec = (
+        db.query(models.Recommendation)
+        .filter(
+            models.Recommendation.attack_log_id == recommendation.attack_log_id,
+            models.Recommendation.status == "PENDING",
+            models.Recommendation.id != rec_id,
+        )
+        .order_by(models.Recommendation.rank.asc(), models.Recommendation.confidence_score.desc())
+        .first()
+    )
+
+    broadcast_threadsafe({
+        "type": "recommendation_rejected",
+        "data": {
+            "rejected_rec_id": rec_id,
+            "attack_log_id": recommendation.attack_log_id,
+            "next_recommendation": {
+                "id": next_rec.id,
+                "title": next_rec.title,
+                "action_type": next_rec.action_type,
+                "confidence": round((next_rec.confidence_score or 0) * 100, 2),
+                "rank": next_rec.rank,
+                "status": next_rec.status,
+            } if next_rec else None,
+        }
+    })
+
+    return {
+        "success": True,
+        "message": f"Recommendation #{recommendation.rank} ({recommendation.title}) rejected.",
+        "rejected_rec_id": rec_id,
+        "next_recommendation": next_rec,
+    }
+
+
 # =============================================================================
 # RECOVERY ENGINE
 # =============================================================================
@@ -2146,6 +2199,21 @@ RECOVERY_SCRIPTS = {
         "Applying security update...",
         "Running post-patch integrity checks...",
         "Patch applied successfully.",
+    ],
+
+    "WAF_RULE": [
+        "Analyzing malicious request signature...",
+        "Generating Web Application Firewall regex rule...",
+        "Pushing WAF filter to hospital reverse proxies...",
+        "Verifying payload inspection on inbound traffic...",
+        "WAF rule deployed and active.",
+    ],
+
+    "MONITOR_ENHANCED": [
+        "Activating high-frequency packet telemetry on node...",
+        "Lowering SIEM anomaly detection thresholds for subnet...",
+        "Enabling verbose logging on hospital auth gateways...",
+        "Continuous behavioral monitoring engaged.",
     ],
 }
 
@@ -2252,184 +2320,94 @@ async def _execute_recovery(
 
         log_lines = []
 
-        for index, step in enumerate(
-            steps
-        ):
+        for index, step in enumerate(steps):
+            await asyncio.sleep(1.0)
 
-            await asyncio.sleep(
-                1.0
-            )
+            percent = int(((index + 1) / len(steps)) * 100)
+            recovery.progress_percent = percent
+            recovery.current_step = step
 
-            if (
-                index == midpoint
-                and attack_log_id
-            ):
-
+            if index == midpoint and attack_log_id:
                 incident = (
-                    db.query(
-                        models.Incident
-                    )
-                    .filter(
-                        models.Incident.attack_id
-                        == attack_log_id
-                    )
+                    db.query(models.Incident)
+                    .filter(models.Incident.attack_id == attack_log_id)
                     .first()
                 )
-
                 if incident:
-                    incident.status = (
-                        "RECOVERY"
-                    )
+                    incident.status = "RECOVERY"
 
                 attack_log = (
-                    db.query(
-                        models.AttackLog
-                    )
-                    .filter(
-                        models.AttackLog.id
-                        == attack_log_id
-                    )
+                    db.query(models.AttackLog)
+                    .filter(models.AttackLog.id == attack_log_id)
                     .first()
                 )
-
                 if attack_log:
-                    attack_log.status = (
-                        "RECOVERY"
-                    )
+                    attack_log.status = "RECOVERY"
 
                 db.commit()
+                await _broadcast_lifecycle(attack_log_id, "RECOVERY")
 
-                await _broadcast_lifecycle(
-                    attack_log_id,
-                    "RECOVERY",
-                )
-
-            timestamp = (
-                datetime.utcnow()
-                .strftime(
-                    "%H:%M:%S"
-                )
-            )
-
-            log_lines.append(
-                f"[{timestamp}] {step}"
-            )
-
-            recovery.execution_log = (
-                "\n".join(
-                    log_lines
-                )
-            )
-
+            timestamp = datetime.utcnow().strftime("%H:%M:%S")
+            log_lines.append(f"[{timestamp}] {step}")
+            recovery.execution_log = "\n".join(log_lines)
             db.commit()
 
-        recovery.status = (
-            "COMPLETED"
-        )
+            # Broadcast real-time recovery progress
+            broadcast_threadsafe({
+                "type": "recovery_progress",
+                "data": {
+                    "recovery_id": recovery_id,
+                    "attack_log_id": attack_log_id,
+                    "progress_percent": percent,
+                    "current_step": step,
+                    "status": "COMPLETED" if percent == 100 else "IN_PROGRESS",
+                    "action_name": recovery.action_name,
+                    "action_type": recovery.action_type,
+                }
+            })
 
-        recovery.completed_at = (
-            datetime.utcnow()
-        )
+        recovery.status = "COMPLETED"
+        recovery.progress_percent = 100
+        recovery.current_step = "Mitigation and recovery completed successfully."
+        recovery.completed_at = datetime.utcnow()
 
         if attack_log_id:
-
             attack_log = (
-                db.query(
-                    models.AttackLog
-                )
-                .filter(
-                    models.AttackLog.id
-                    == attack_log_id
-                )
+                db.query(models.AttackLog)
+                .filter(models.AttackLog.id == attack_log_id)
                 .first()
             )
-
             if attack_log:
-
-                attack_log.status = (
-                    "RESOLVED"
-                )
-
-                attack_log.resolved_at = (
-                    datetime.utcnow()
-                )
+                attack_log.status = "RESOLVED"
+                attack_log.resolved_at = datetime.utcnow()
 
             incident = (
-                db.query(
-                    models.Incident
-                )
-                .filter(
-                    models.Incident.attack_id
-                    == attack_log_id
-                )
+                db.query(models.Incident)
+                .filter(models.Incident.attack_id == attack_log_id)
                 .first()
             )
-
             if incident:
-
-                incident.status = (
-                    "RESOLVED"
-                )
-
-                incident.closed_at = (
-                    datetime.utcnow()
-                )
-
-            alerts = (
-                db.query(
-                    models.Alert
-                )
-                .filter(
-                    models.Alert.attack_log_id
-                    == attack_log_id
-                )
-                .all()
-            )
-
-            for alert in alerts:
-
-                alert.is_acknowledged = (
-                    True
-                )
-
-                alert.acknowledged_at = (
-                    datetime.utcnow()
-                )
-
-                alert.acknowledged_by = (
-                    recovery.executed_by
-                )
+                incident.status = "RESOLVED"
+                incident.closed_at = datetime.utcnow()
 
             memory_entry = (
-                db.query(
-                    models.AttackMemoryEntry
-                )
-                .filter(
-                    models.AttackMemoryEntry.attack_log_id
-                    == attack_log_id
-                )
-                .order_by(
-                    models.AttackMemoryEntry.recorded_at.desc()
-                )
+                db.query(models.AttackMemoryEntry)
+                .filter(models.AttackMemoryEntry.attack_log_id == attack_log_id)
                 .first()
             )
-
             if memory_entry:
-
-                memory_entry.outcome = (
-                    "RESOLVED"
-                )
-
-                memory_entry.success = (
-                    True
-                )
+                memory_entry.outcome = "RESOLVED"
+                memory_entry.success = True
 
             db.commit()
+            alerts = db.query(models.Alert).filter(models.Alert.attack_log_id == attack_log_id).all()
+            for alert in alerts:
+                alert.is_acknowledged = True
+                alert.acknowledged_at = datetime.utcnow()
+                alert.acknowledged_by = recovery.executed_by
 
-            await _broadcast_lifecycle(
-                attack_log_id,
-                "RESOLVED",
-            )
+            db.commit()
+            await _broadcast_lifecycle(attack_log_id, "RESOLVED")
 
     except Exception as error:
 
@@ -4688,661 +4666,31 @@ attack_sim_router = APIRouter(
 import random
 import string
 import time
+import asyncio
+import csv
+import io
 
 from ws_manager import broadcast_threadsafe
+from cml.event_simulator import simulator
 
-# Mapping of attack type -> realistic synthetic features
-SIM_ATTACK_PROFILES = {
-    "DDoS": {
-        "dataset": "TON_IoT",
-        "target_class": "ddos",
-        "source_ip_prefix": "192.168.",
-        "dst_port": 80,
-        "proto": "tcp",
-        "src_bytes_range": (900000, 5000000),
-        "description_prefix": "[SIMULATOR] DDoS flood attack detected",
-    },
-    "Ransomware": {
-        "dataset": "TON_IoT",
-        "target_class": "ransomware",
-        "source_ip_prefix": "10.10.",
-        "dst_port": 445,
-        "proto": "tcp",
-        "src_bytes_range": (150000, 700000),
-        "description_prefix": "[SIMULATOR] Ransomware SMB lateral movement detected",
-    },
-    "Phishing": {
-        "dataset": "PhiUSIIL",
-        "target_class": "phishing",
-        "source_ip_prefix": "172.16.",
-        "dst_port": 443,
-        "proto": "tcp",
-        "src_bytes_range": (8000, 50000),
-        "description_prefix": "[SIMULATOR] Phishing URL detected",
-    },
-    "Insider Threat": {
-        "dataset": "CERT",
-        "target_class": "insider",
-        "source_ip_prefix": "10.0.5.",
-        "dst_port": 22,
-        "proto": "tcp",
-        "src_bytes_range": (5000, 80000),
-        "description_prefix": "[SIMULATOR] Insider threat behavioral anomaly detected",
-    },
-    "Port Scan": {
-        "dataset": "TON_IoT",
-        "target_class": "ddos",
-        "source_ip_prefix": "198.51.",
-        "dst_port": 0,
-        "proto": "tcp",
-        "src_bytes_range": (200, 2000),
-        "description_prefix": "[SIMULATOR] Sequential port scan detected",
-    },
-    "Brute Force": {
-        "dataset": "TON_IoT",
-        "target_class": "ddos",
-        "source_ip_prefix": "203.0.",
-        "dst_port": 22,
-        "proto": "tcp",
-        "src_bytes_range": (3000, 20000),
-        "description_prefix": "[SIMULATOR] SSH brute force login attempt detected",
-    },
+# Mapping of all supported simulated attack categories -> (dataset_source, target_class_hint)
+SIM_ATTACK_MAPPING = {
+    "DDoS": ("TON_IoT", "ddos"),
+    "DoS": ("TON_IoT", "dos"),
+    "Ransomware": ("TON_IoT", "ransomware"),
+    "Backdoor": ("TON_IoT", "backdoor"),
+    "Injection": ("TON_IoT", "injection"),
+    "Password Attack": ("TON_IoT", "password"),
+    "Scanning": ("TON_IoT", "scanning"),
+    "XSS": ("TON_IoT", "xss"),
+    "MITM": ("TON_IoT", "mitm"),
+    "Phishing": ("PhiUSIIL", "phishing"),
+    "Insider Threat": ("CERT", "insider"),
+    "Port Scan": ("TON_IoT", "scanning"),
+    "Brute Force": ("TON_IoT", "password"),
 }
 
-SEVERITY_OVERRIDE = {
-    "LOW": ("LOW", 20.0),
-    "MEDIUM": ("MEDIUM", 50.0),
-    "HIGH": ("HIGH", 78.0),
-    "CRITICAL": ("CRITICAL", 92.0),
-}
-
-MITRE_SIM = {
-    "DDoS": ("T1498", "Network Denial of Service"),
-    "Ransomware": ("T1486", "Data Encrypted for Impact"),
-    "Phishing": ("T1566", "Phishing"),
-    "Insider Threat": ("T1078", "Valid Accounts"),
-    "Port Scan": ("T1046", "Network Service Discovery"),
-    "Brute Force": ("T1110", "Brute Force"),
-}
-
-
-QIGA_SUPPORTED_TYPES = {"DDoS", "Ransomware", "Phishing", "Insider Threat"}
-
-
-def _enrich_sim_event(db, attack_log, attack_type, severity, risk_score, raw_features):
-    """Generate QIGA recommendations + an attack-memory entry for a simulated event.
-
-    This mirrors the automatic dataset-replay pipeline so the QIGA Optimizer,
-    Response, and Threat Memory panels populate when attacks are driven from the
-    Attack Simulator panel. Returns the list of recommended action ids.
-    """
-    qiga_action_ids = []
-
-    if attack_type in QIGA_SUPPORTED_TYPES:
-        try:
-            result = qiga.optimize(
-                risk_score=float(risk_score),
-                attack_type=attack_type,
-                severity=severity,
-                alpha=0.40, beta=0.35, gamma=0.25,
-            )
-            db.add(models.QIGAResult(
-                attack_log_id=attack_log.id,
-                risk_score=float(risk_score),
-                attack_type=attack_type,
-                severity=severity,
-                objective_score=result["objective_score"],
-                selected_actions=[a["id"] for a in result["best_actions"]],
-                all_actions_scored=result["all_actions"],
-                convergence_data=result["convergence"],
-                combined_effectiveness=result["combined_effectiveness"],
-                combined_cost=result["combined_cost"],
-                total_downtime_min=result["total_downtime_min"],
-                alpha=result["weights"]["alpha"],
-                beta=result["weights"]["beta"],
-                gamma=result["weights"]["gamma"],
-                generations=result["generations"],
-                population_size=result["population_size"],
-            ))
-            for action in result["best_actions"]:
-                action_id = action.get("id")
-                if not action_id:
-                    continue
-                action_name = action.get("name", action_id)
-                effectiveness = float(action.get("effectiveness", 0.0))
-                recovery_time = float(action.get("recovery_time", 0.0))
-                resource_units = action.get("resource_units", "N/A")
-                db.add(models.Recommendation(
-                    attack_log_id=attack_log.id,
-                    title=action_name,
-                    description=(
-                        f"QIGA selected {action_name} for {attack_type}. "
-                        f"Estimated effectiveness: {effectiveness * 100:.1f}%. "
-                        f"Estimated recovery time: {recovery_time:.0f} minutes."
-                    ),
-                    action_type=action_id,
-                    confidence_score=effectiveness,
-                    resource_cost=str(resource_units),
-                    latency_impact=f"{recovery_time:.0f} min",
-                    is_approved=False,
-                ))
-                qiga_action_ids.append(action_id)
-        except Exception as error:
-            print(f"[SIM QIGA] skipped for {attack_type}: {error}")
-
-    try:
-        db.add(models.AttackMemoryEntry(
-            attack_log_id=attack_log.id,
-            attack_type=attack_type,
-            severity=severity,
-            risk_score=float(risk_score),
-            feature_fingerprint=raw_features,
-            raw_features=raw_features,
-            recommended_actions=qiga_action_ids,
-            outcome="DETECTED",
-            success=False,
-        ))
-    except Exception as error:
-        print(f"[SIM MEMORY] db entry skipped: {error}")
-
-    return qiga_action_ids
-
-
-def _remember_sim_event(attack_log_id, attack_type, severity, risk_score, raw_features, dataset, action_ids):
-    """Add the event to the in-memory attack-knowledge store (used by /memory/*)."""
-    try:
-        attack_memory.add(
-            attack_id=attack_log_id,
-            attack_type=attack_type,
-            severity=severity,
-            risk_score=float(risk_score),
-            features=raw_features,
-            recommended_actions=action_ids,
-            dataset_source=dataset,
-        )
-    except Exception as error:
-        print(f"[SIM MEMORY] store skipped: {error}")
-
-
-@attack_sim_router.post("/attack")
-def trigger_simulated_attack(
-    attack_type: str = "DDoS",
-    severity: str = "HIGH",
-    db: Session = Depends(get_db),
-    current_user=Depends(require_role(["admin", "analyst"])),
-):
-    """Manually trigger a simulated attack event through the full AI detection pipeline."""
-
-    if attack_type not in SIM_ATTACK_PROFILES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown attack type. Choose from: {list(SIM_ATTACK_PROFILES.keys())}"
-        )
-
-    severity = severity.upper()
-    if severity not in SEVERITY_OVERRIDE:
-        severity = "HIGH"
-
-    profile = SIM_ATTACK_PROFILES[attack_type]
-    sev_label, risk_score = SEVERITY_OVERRIDE[severity]
-
-    # Generate realistic synthetic source IP
-    rand_octet = lambda: str(random.randint(1, 254))
-    source_ip = profile["source_ip_prefix"] + f"{rand_octet()}.{rand_octet()}"
-
-    # Synthetic raw_features for the dataset type
-    src_bytes = random.randint(*profile["src_bytes_range"])
-    dst_bytes = random.randint(100, src_bytes // 3)
-    raw_features = {
-        "src_ip": source_ip,
-        "dst_ip": f"10.0.0.{random.randint(1, 30)}",
-        "src_port": random.randint(1024, 65535),
-        "dst_port": profile["dst_port"] if profile["dst_port"] != 0 else random.randint(20, 8443),
-        "proto": profile["proto"],
-        "duration": round(random.uniform(0.1, 10.0), 3),
-        "src_bytes": float(src_bytes),
-        "dst_bytes": float(dst_bytes),
-        "src_pkts": random.randint(50, 5000),
-        "dst_pkts": random.randint(10, 500),
-        "sim": True,
-        "sim_attack_type": attack_type,
-    }
-
-    mitre_id, mitre_name = MITRE_SIM.get(attack_type, (None, None))
-    confidence = round(random.uniform(82.0, 99.5), 1)
-
-    description = (
-        f"{profile['description_prefix']} | Source: {source_ip} | "
-        f"Confidence: {confidence:.1f}% | Risk: {risk_score:.0f}/100"
-    )
-
-    # Create AttackLog
-    attack_log = models.AttackLog(
-        attack_type=attack_type,
-        source_ip=source_ip,
-        dest_ip=raw_features["dst_ip"],
-        protocol=profile["proto"],
-        port=raw_features["dst_port"],
-        severity=sev_label,
-        status="DETECTED",
-        suspicious_score=confidence,
-        mitre_technique_id=mitre_id,
-        mitre_technique_name=mitre_name,
-        raw_features=raw_features,
-        description=description,
-        dataset_source=profile["dataset"],
-        malware_indicator=(attack_type in ("Ransomware", "Phishing")),
-        cpu_utilization=round(random.uniform(60.0, 98.0), 1) if attack_type == "DDoS" else None,
-        failed_login_count=random.randint(50, 999) if attack_type == "Brute Force" else None,
-    )
-    db.add(attack_log)
-    db.flush()
-
-    # Risk Score
-    risk_status = "CRITICAL" if risk_score > 70 else "WARNING" if risk_score > 40 else "STABLE"
-    risk_record = models.RiskScore(
-        attack_log_id=attack_log.id,
-        score=risk_score,
-        confidence=confidence,
-        model_version="SIM_MLP_v1",
-        prediction_label=attack_type,
-        node_id=f"SIM_{attack_type.upper().replace(' ', '_')}",
-        status=risk_status,
-        features_used=raw_features,
-        risk_band=sev_label,
-        confidence_band="High",
-    )
-    db.add(risk_record)
-
-    # Alert
-    if sev_label in ("MEDIUM", "HIGH", "CRITICAL"):
-        alert = models.Alert(
-            alert_type=attack_type.upper().replace(" ", "_"),
-            title=f"[SIM] {attack_type} Attack Triggered",
-            message=description,
-            severity=sev_label,
-            attack_log_id=attack_log.id,
-        )
-        db.add(alert)
-
-    # Incident for HIGH/CRITICAL
-    if sev_label in ("HIGH", "CRITICAL"):
-        incident = models.Incident(
-            attack_id=attack_log.id,
-            status="DETECTED",
-            mitre_technique_id=mitre_id,
-            mitre_technique_name=mitre_name,
-        )
-        db.add(incident)
-
-    # Auto-block source IP if CRITICAL
-    if sev_label == "CRITICAL":
-        existing_fw = db.query(models.FirewallRule).filter(
-            models.FirewallRule.ip_address == source_ip,
-            models.FirewallRule.is_active == True,
-        ).first()
-        if not existing_fw:
-            fw_rule = models.FirewallRule(
-                ip_address=source_ip,
-                port=raw_features["dst_port"],
-                protocol=profile["proto"],
-                reason=f"Auto-blocked by sim: {attack_type}",
-                attack_type=attack_type,
-                severity=sev_label,
-                attack_log_id=attack_log.id,
-                blocked_by="SIMULATOR",
-                is_active=True,
-            )
-            db.add(fw_rule)
-
-    qiga_action_ids = _enrich_sim_event(
-        db, attack_log, attack_type, sev_label, risk_score, raw_features
-    )
-
-    db.commit()
-    db.refresh(attack_log)
-
-    _remember_sim_event(
-        attack_log.id, attack_type, sev_label, risk_score,
-        raw_features, profile["dataset"], qiga_action_ids,
-    )
-
-    # -------------------------------------------------------------------------
-    # Push the manually launched attack into the Live Threat Feed in real time,
-    # exactly like the automatic dataset-replay pipeline does. This makes the
-    # Attack Simulator panel the driver of live demonstrations.
-    # -------------------------------------------------------------------------
-    broadcast_threadsafe(
-        {
-            "type": "threat",
-            "data": {
-                "attack_log_id": attack_log.id,
-                "attack_type": attack_type,
-                "severity": sev_label,
-                "confidence": round(confidence, 2),
-                "risk_score": round(risk_score, 1),
-                "source_ip": source_ip,
-                "dest_ip": raw_features["dst_ip"],
-                "dataset": profile["dataset"],
-                "dataset_source": profile["dataset"],
-                "mitre_id": mitre_id,
-                "mitre_name": mitre_name,
-                "description": description,
-                "timestamp": datetime.utcnow().isoformat(),
-                "raw_features": raw_features,
-                "stage": "SIM_INJECTED",
-                "mlp_prediction": {
-                    "label": attack_type,
-                    "confidence": round(confidence, 2),
-                    "risk_score": round(risk_score, 1),
-                    "model_version": "SIM_MLP_v1",
-                    "dataset": profile["dataset"],
-                },
-            },
-        }
-    )
-
-    return {
-        "success": True,
-        "attack_log_id": attack_log.id,
-        "attack_type": attack_type,
-        "severity": sev_label,
-        "risk_score": risk_score,
-        "source_ip": source_ip,
-        "mitre": f"{mitre_id} - {mitre_name}",
-        "confidence": confidence,
-        "message": f"Simulated {attack_type} attack injected into pipeline. Attack log ID: {attack_log.id}",
-    }
-
-
-@attack_sim_router.get("/types")
-def get_attack_types(current_user=Depends(get_current_user)):
-    """Returns all available simulated attack types with details."""
-    return [
-        {
-            "attack_type": k,
-            "dataset": v["dataset"],
-            "mitre": f"{MITRE_SIM[k][0]} - {MITRE_SIM[k][1]}",
-            "typical_severity": "CRITICAL" if k in ("Ransomware", "DDoS") else "HIGH",
-        }
-        for k, v in SIM_ATTACK_PROFILES.items()
-    ]
-
-
-@attack_sim_router.post("/scenario")
-def run_multi_attack_scenario(
-    scenario: str = "hospital_breach",
-    db: Session = Depends(get_db),
-    current_user=Depends(require_role(["admin", "analyst"])),
-):
-    """Runs a multi-stage attack scenario - fires several attack types in sequence."""
-    scenarios = {
-        "hospital_breach": [
-            ("Port Scan", "MEDIUM"),
-            ("Brute Force", "HIGH"),
-            ("Ransomware", "CRITICAL"),
-        ],
-        "phishing_campaign": [
-            ("Phishing", "HIGH"),
-            ("Insider Threat", "HIGH"),
-            ("Ransomware", "CRITICAL"),
-        ],
-        "ddos_wave": [
-            ("DDoS", "CRITICAL"),
-            ("DDoS", "CRITICAL"),
-            ("DDoS", "HIGH"),
-        ],
-        "full_spectrum": [
-            ("Port Scan", "MEDIUM"),
-            ("Phishing", "HIGH"),
-            ("Brute Force", "HIGH"),
-            ("Insider Threat", "HIGH"),
-            ("DDoS", "CRITICAL"),
-            ("Ransomware", "CRITICAL"),
-        ],
-        "ransomware_kill_chain": [
-            ("Phishing", "HIGH"),
-            ("Brute Force", "HIGH"),
-            ("Ransomware", "CRITICAL"),
-        ],
-        "apt_intrusion": [
-            ("Port Scan", "MEDIUM"),
-            ("Brute Force", "HIGH"),
-            ("Insider Threat", "HIGH"),
-            ("Zero-Day", "HIGH"),
-            ("Ransomware", "CRITICAL"),
-        ],
-        "data_exfiltration": [
-            ("Phishing", "HIGH"),
-            ("Insider Threat", "CRITICAL"),
-            ("Port Scan", "MEDIUM"),
-        ],
-        "iot_botnet_ddos": [
-            ("Port Scan", "MEDIUM"),
-            ("DDoS", "HIGH"),
-            ("DDoS", "CRITICAL"),
-        ],
-        "zero_day_outbreak": [
-            ("Zero-Day", "HIGH"),
-            ("Zero-Day", "CRITICAL"),
-            ("Ransomware", "CRITICAL"),
-        ],
-        "memory_recall": [
-            ("Ransomware", "CRITICAL"),
-            ("Ransomware", "HIGH"),
-            ("Ransomware", "CRITICAL"),
-            ("Ransomware", "HIGH"),
-            ("DDoS", "HIGH"),
-        ],
-    }
-
-    if scenario not in scenarios:
-        raise HTTPException(status_code=400, detail=f"Unknown scenario. Choose: {list(scenarios.keys())}")
-
-    results = []
-    for attack_type, severity in scenarios[scenario]:
-        try:
-            if attack_type == "Zero-Day":
-                result = trigger_anomaly_attack(severity=severity, db=db, current_user=current_user)
-            else:
-                result = trigger_simulated_attack(attack_type=attack_type, severity=severity, db=db, current_user=current_user)
-            results.append(result)
-        except Exception as e:
-            results.append({"error": str(e), "attack_type": attack_type})
-        # Small stagger so the stages surface sequentially in the Live Threat Feed.
-        time.sleep(0.5)
-
-    return {"scenario": scenario, "attacks_fired": len(results), "results": results}
-
-
-@attack_sim_router.post("/anomaly")
-def trigger_anomaly_attack(
-    severity: str = "HIGH",
-    db: Session = Depends(get_db),
-    current_user=Depends(require_role(["admin", "analyst"])),
-):
-    """Fire a NOVEL / unrecognized attack pattern (zero-day).
-
-    Unlike the six known vectors, this crafts out-of-distribution network
-    traffic. The supervised MLP would label it 'Normal', but the unsupervised
-    Isolation Forest flags it as anomalous -> the event is recorded as an
-    'Anomaly (Zero-Day)' and streamed to the Live Threat Feed. This demonstrates
-    the system catching attacks it was never trained on.
-    """
-    from cml.anomaly_detector import anomaly_detector
-
-    severity = severity.upper()
-    if severity not in SEVERITY_OVERRIDE:
-        severity = "HIGH"
-    sev_label, risk_score = SEVERITY_OVERRIDE[severity]
-
-    rand_octet = lambda: str(random.randint(1, 254))
-    source_ip = f"185.220.{rand_octet()}.{rand_octet()}"  # unusual external range
-
-    # Deliberately out-of-distribution TON_IoT features: extreme, asymmetric,
-    # unusual port/conn-state the model has never seen in normal traffic.
-    raw_features = {
-        "src_ip": source_ip,
-        "dst_ip": f"10.0.0.{random.randint(1, 30)}",
-        "src_port": random.randint(1024, 65535),
-        "dst_port": random.choice([31337, 6666, 4444, 0, 9001]),
-        "proto": random.choice(["tcp", "udp"]),
-        "duration": round(random.choice([0.0001, 9999.0]), 4),
-        "src_bytes": float(random.randint(40_000_000, 90_000_000)),
-        "dst_bytes": 0.0,
-        "src_pkts": random.randint(500_000, 999_999),
-        "dst_pkts": 0,
-        "conn_state_num": random.choice([9, 11, 13]),
-        "sim": True,
-        "sim_attack_type": "Zero-Day",
-    }
-
-    # Run the real Isolation Forest on the crafted features.
-    anomaly_result = anomaly_detector.detect_anomaly(
-        raw_features=raw_features,
-        dataset_source="TON_IoT",
-    )
-    # Force the zero-day outcome for a reliable demo even if the detector is
-    # untrained or the score sits just under threshold.
-    anomaly_result["is_anomaly"] = True
-    anomaly_score = anomaly_result.get("anomaly_score", 0.0)
-
-    confidence = round(random.uniform(70.0, 88.0), 1)
-    description = (
-        f"[SIMULATOR] Novel / unrecognized traffic pattern from {source_ip}. "
-        f"MLP classified as Normal, but Isolation Forest flagged it as anomalous "
-        f"(score: {anomaly_score:.4f}). Possible zero-day / unseen attack."
-    )
-
-    attack_log = models.AttackLog(
-        attack_type="Anomaly (Zero-Day)",
-        source_ip=source_ip,
-        dest_ip=raw_features["dst_ip"],
-        protocol=raw_features["proto"],
-        port=raw_features["dst_port"] if raw_features["dst_port"] else None,
-        severity=sev_label,
-        status="DETECTED",
-        suspicious_score=confidence,
-        mitre_technique_id="T0000",
-        mitre_technique_name="Novel/Unseen Pattern (IF Anomaly)",
-        raw_features=raw_features,
-        description=description,
-        dataset_source="TON_IoT",
-    )
-    db.add(attack_log)
-    db.flush()
-
-    risk_record = models.RiskScore(
-        attack_log_id=attack_log.id,
-        score=risk_score,
-        confidence=confidence,
-        model_version="SIM_ANOMALY_IF_v1",
-        prediction_label="Anomaly (Zero-Day)",
-        node_id="SIM_ZERO_DAY",
-        status="CRITICAL" if risk_score > 70 else "WARNING",
-        features_used=raw_features,
-        risk_band=sev_label,
-        confidence_band="Medium",
-    )
-    db.add(risk_record)
-
-    anomaly_record = models.AnomalyDetection(
-        attack_log_id=attack_log.id,
-        anomaly_score=anomaly_score,
-        is_anomaly=True,
-        detector_type=anomaly_result.get("detector_type", "IsolationForest"),
-        dataset_source="TON_IoT",
-        features_used=anomaly_result.get("features_used", []),
-    )
-    db.add(anomaly_record)
-
-    db.add(models.Alert(
-        alert_type="ANOMALY_ZERO_DAY",
-        title="Anomaly Detected [Zero-Day]",
-        message=description,
-        severity=sev_label,
-        attack_log_id=attack_log.id,
-    ))
-
-    db.add(models.Incident(
-        attack_id=attack_log.id,
-        status="DETECTED",
-        mitre_technique_id="T0000",
-        mitre_technique_name="Novel/Unseen Pattern (IF Anomaly)",
-    ))
-
-    qiga_action_ids = _enrich_sim_event(
-        db, attack_log, "Anomaly (Zero-Day)", sev_label, risk_score, raw_features
-    )
-
-    db.commit()
-    db.refresh(attack_log)
-
-    _remember_sim_event(
-        attack_log.id, "Anomaly (Zero-Day)", sev_label, risk_score,
-        raw_features, "TON_IoT", qiga_action_ids,
-    )
-
-    threat_payload = {
-        "attack_log_id": attack_log.id,
-        "attack_type": "Anomaly (Zero-Day)",
-        "severity": sev_label,
-        "confidence": confidence,
-        "risk_score": round(risk_score, 1),
-        "source_ip": source_ip,
-        "dest_ip": raw_features["dst_ip"],
-        "dataset": "TON_IoT",
-        "dataset_source": "TON_IoT",
-        "mitre_id": "T0000",
-        "mitre_name": "Novel/Unseen Pattern (IF Anomaly)",
-        "description": description,
-        "timestamp": datetime.utcnow().isoformat(),
-        "raw_features": raw_features,
-        "stage": "SIM_ANOMALY",
-        "anomaly_detection": anomaly_result,
-        "mlp_prediction": {
-            "label": "Anomaly (Zero-Day)",
-            "confidence": confidence,
-            "risk_score": round(risk_score, 1),
-            "model_version": "SIM_ANOMALY_IF_v1",
-            "dataset": "TON_IoT",
-        },
-    }
-    broadcast_threadsafe({"type": "threat", "data": threat_payload})
-    broadcast_threadsafe({
-        "type": "anomaly_detection",
-        "data": {
-            "attack_log_id": attack_log.id,
-            "anomaly_score": anomaly_score,
-            "is_anomaly": True,
-            "detector_type": anomaly_result.get("detector_type", "IsolationForest"),
-            "dataset": "TON_IoT",
-            "attack_type": "Anomaly (Zero-Day)",
-            "severity": sev_label,
-            "timestamp": datetime.utcnow().isoformat(),
-        },
-    })
-
-    return {
-        "success": True,
-        "attack_log_id": attack_log.id,
-        "attack_type": "Anomaly (Zero-Day)",
-        "severity": sev_label,
-        "risk_score": risk_score,
-        "source_ip": source_ip,
-        "anomaly_score": anomaly_score,
-        "mitre": "T0000 - Novel/Unseen Pattern (IF Anomaly)",
-        "confidence": confidence,
-        "message": (
-            f"Zero-day anomaly injected. MLP=Normal, Isolation Forest flagged "
-            f"anomalous (score {anomaly_score:.4f}). Attack log ID: {attack_log.id}"
-        ),
-    }
-
-
-# Auto-replay starts PAUSED so the system does not auto-attack. The SOC operator
-# drives demonstrations from the Attack Simulator panel (LAUNCH / scenarios), and
-# can still flip on background replay via the AUTO-REPLAY toggle in the header.
+# Monitoring background stream flag (starts paused until explicitly toggled)
 REPLAY_ACTIVE_FLAG = {"enabled": False}
 
 
@@ -5359,6 +4707,218 @@ def toggle_replay(enabled: Optional[bool] = None, current_user=Depends(require_r
         REPLAY_ACTIVE_FLAG["enabled"] = not REPLAY_ACTIVE_FLAG["enabled"]
     return {
         "enabled": REPLAY_ACTIVE_FLAG["enabled"],
-        "message": f"Background replay is now {'ENABLED' if REPLAY_ACTIVE_FLAG['enabled'] else 'PAUSED'}"
+        "message": f"Simulated monitoring service is now {'ENABLED' if REPLAY_ACTIVE_FLAG['enabled'] else 'PAUSED'}"
     }
 
+
+@attack_sim_router.post("/attack")
+async def trigger_simulated_attack(
+    attack_type: str = "DDoS",
+    severity: Optional[str] = "HIGH",
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """
+    Manually trigger a simulated attack event through the real AI detection pipeline.
+    Uses rejection sampling to ensure synthetic raw features trigger the intended MLP class.
+    """
+    from main import process_security_event
+
+    target_info = SIM_ATTACK_MAPPING.get(attack_type, ("TON_IoT", attack_type.lower()))
+    dataset_source, target_class = target_info
+
+    best_event = None
+    # Rejection sampling (up to 5 attempts to produce raw features matching the target intent)
+    for _ in range(5):
+        if dataset_source == "TON_IoT":
+            candidate = simulator.generate_ton_iot_event(target_class=target_class)
+        elif dataset_source == "PhiUSIIL":
+            candidate = simulator.generate_phishing_event(target_class=target_class)
+        elif dataset_source == "CERT":
+            candidate = simulator.generate_cert_event(target_class=target_class)
+        else:
+            candidate = simulator.generate_random_event()
+
+        best_event = candidate
+        pred = dataset_engine.predict(candidate["raw_features"], candidate["dataset_source"])
+        if pred["prediction_label"].lower() == attack_type.lower() or target_class in pred["prediction_label"].lower():
+            break
+
+    raw_features = best_event["raw_features"]
+    res = await process_security_event(
+        raw_features=raw_features,
+        dataset_source=dataset_source,
+        input_source="SIMULATOR",
+        metadata={"target_attack_type": attack_type},
+        db=db,
+    )
+
+    return res
+
+
+@attack_sim_router.post("/anomaly")
+async def trigger_anomaly_attack(
+    severity: Optional[str] = "HIGH",
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """
+    Fire a genuine out-of-distribution network traffic pattern.
+    The Isolation Forest anomaly detector flags it without hardcoded overrides.
+    """
+    from main import process_security_event
+
+    event_data = simulator.generate_anomalous_event()
+    res = await process_security_event(
+        raw_features=event_data["raw_features"],
+        dataset_source=event_data["dataset_source"],
+        input_source="SIMULATOR_ANOMALY",
+        metadata=event_data.get("metadata"),
+        db=db,
+    )
+
+    return res
+
+
+@attack_sim_router.post("/upload")
+async def upload_attack_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """
+    Upload a CSV attack file to process through the real ML pipeline.
+    Automatically detects TON_IoT, PhiUSIIL, or CERT format from CSV columns.
+    """
+    from main import process_security_event
+
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported.")
+
+    content = await file.read()
+    text = content.decode("utf-8", errors="ignore")
+    reader = csv.DictReader(io.StringIO(text))
+
+    rows = list(reader)
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV file is empty.")
+
+    # Determine dataset schema
+    sample_row = rows[0]
+    if "URLLength" in sample_row or "URL" in sample_row:
+        dataset_source = "PhiUSIIL"
+    elif "activity" in sample_row or "user" in sample_row:
+        dataset_source = "CERT"
+    else:
+        dataset_source = "TON_IoT"
+
+    results = []
+    # Process up to 50 rows per upload to maintain responsiveness
+    max_rows = min(len(rows), 50)
+    for i in range(max_rows):
+        row = rows[i]
+        res = await process_security_event(
+            raw_features=row,
+            dataset_source=dataset_source,
+            input_source="CSV_UPLOAD",
+            metadata={"row_index": i, "filename": file.filename},
+            db=db,
+        )
+        if res.get("success"):
+            results.append(res)
+        await asyncio.sleep(0.1)
+
+    return {
+        "success": True,
+        "filename": file.filename,
+        "dataset_detected": dataset_source,
+        "rows_processed": len(results),
+        "total_rows": len(rows),
+        "events": results,
+    }
+
+
+@attack_sim_router.post("/scenario")
+async def trigger_scenario(
+    scenario: str = "apt_campaign",
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """
+    Execute a multi-stage attack scenario through the real AI pipeline.
+    """
+    scenarios = {
+        "hospital_breach": [
+            ("Scanning", "LOW"),
+            ("Password Attack", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "phishing_campaign": [
+            ("Phishing", "LOW"),
+            ("Insider Threat", "MEDIUM"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "ransomware_kill_chain": [
+            ("Phishing", "MEDIUM"),
+            ("Password Attack", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "apt_intrusion": [
+            ("Scanning", "LOW"),
+            ("Backdoor", "MEDIUM"),
+            ("Injection", "HIGH"),
+            ("Anomaly (Zero-Day)", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "apt_campaign": [
+            ("Scanning", "LOW"),
+            ("Backdoor", "MEDIUM"),
+            ("Injection", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "data_exfiltration": [
+            ("Phishing", "MEDIUM"),
+            ("Insider Threat", "CRITICAL"),
+            ("Scanning", "HIGH"),
+        ],
+        "ddos_wave": [
+            ("DDoS", "HIGH"),
+            ("DDoS", "CRITICAL"),
+            ("DDoS", "CRITICAL"),
+        ],
+        "zero_day_outbreak": [
+            ("Anomaly (Zero-Day)", "HIGH"),
+            ("Anomaly (Zero-Day)", "CRITICAL"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "credential_stuffing": [
+            ("Password Attack", "MEDIUM"),
+            ("Insider Threat", "HIGH"),
+        ],
+        "web_compromise": [
+            ("Scanning", "LOW"),
+            ("XSS", "MEDIUM"),
+            ("Injection", "HIGH"),
+        ],
+    }
+
+    if scenario not in scenarios:
+        raise HTTPException(status_code=400, detail=f"Unknown scenario '{scenario}'. Choose: {list(scenarios.keys())}")
+
+    results = []
+    for attack_type, sev in scenarios[scenario]:
+        try:
+            if "Anomaly" in attack_type or "Zero-Day" in attack_type:
+                res = await trigger_anomaly_attack(severity=sev, db=db, current_user=current_user)
+            else:
+                res = await trigger_simulated_attack(attack_type=attack_type, severity=sev, db=db, current_user=current_user)
+            results.append(res)
+        except Exception as e:
+            results.append({"error": str(e), "attack_type": attack_type})
+        await asyncio.sleep(0.8)
+
+    return {
+        "scenario": scenario,
+        "attacks_fired": len(results),
+        "results": results,
+    }

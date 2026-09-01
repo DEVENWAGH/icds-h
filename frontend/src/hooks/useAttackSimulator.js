@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import api from '../utils/api'
 
 function delay(ms) {
@@ -121,5 +121,30 @@ export function useAttackSimulator() {
     }
   }, [loading])
 
-  return { stage, lastResult, log, loading, fireAttack, fireScenario, fireAnomaly, clearLog }
+  const uploadCsv = useCallback(async (file) => {
+    if (loading || !file) return
+    setLoading(true)
+    setStage('INJECTING')
+    appendLog(`[CSV] Uploading ${file.name} for ML pipeline inference...`, 'warn')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.post('/sim/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      const data = res.data
+      setLastResult(data)
+      setStage('COMPLETE')
+      appendLog(`[CSV] Processed ${data.rows_processed}/${data.total_rows} events (${data.dataset_detected})`, 'success')
+    } catch (err) {
+      setStage('ERROR')
+      const msg = err?.response?.data?.detail || err.message || 'CSV upload failed'
+      appendLog(`[ERR] CSV upload error: ${msg}`, 'danger')
+    } finally {
+      setLoading(false)
+      setTimeout(() => setStage('IDLE'), 3000)
+    }
+  }, [loading])
+
+  return { stage, lastResult, log, loading, fireAttack, fireScenario, fireAnomaly, uploadCsv, clearLog }
 }

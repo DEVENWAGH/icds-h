@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import api from '../utils/api'
+import { useAlertStore } from './index'
 
 export const LIFECYCLE_STAGES = [
 'DETECTED',
@@ -10,10 +11,21 @@ export const LIFECYCLE_STAGES = [
 ]
 
 const THREAT_TYPES = new Set([
-'DDoS',
-'Ransomware',
-'Phishing',
-'Insider Threat',
+  'DDoS',
+  'DoS',
+  'Ransomware',
+  'Backdoor',
+  'Injection',
+  'Password Attack',
+  'Scanning',
+  'XSS',
+  'MITM',
+  'Phishing',
+  'Insider Threat',
+  'Anomaly (Zero-Day)',
+  'Port Scan',
+  'Brute Force',
+  'SQL Injection',
 ])
 
 /*
@@ -558,6 +570,12 @@ init: async () => {
       rawLogs.map(
         normalizeIncident
       )
+
+    incidents.forEach((inc) => {
+      if (inc.is_threat && inc.attack_type !== 'Normal') {
+        useAlertStore.getState().addLiveThreat(inc)
+      }
+    })
 
     set({
       incidents,

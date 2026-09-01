@@ -777,7 +777,7 @@ export default function Monitoring() {
                           ? 'bg-cyber-cyan/10 border-l-2 border-l-cyber-cyan'
                           : isNormal
                             ? 'bg-white/[0.01] hover:bg-white/[0.03]'
-                            : 'hover:bg-white/2'
+                            : 'hover:bg-white/[0.04]'
                       }`}
                     >
 

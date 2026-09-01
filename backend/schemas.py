@@ -119,6 +119,8 @@ class RecommendationOut(BaseModel):
     resource_cost: Optional[str]
     latency_impact: Optional[str]
     is_approved: bool
+    status: Optional[str] = "PENDING"
+    rank: Optional[int] = 1
     class Config: from_attributes = True
 
 # Recovery Action
@@ -129,6 +131,8 @@ class RecoveryActionOut(BaseModel):
     action_type: str
     target_node: Optional[str]
     status: str
+    progress_percent: Optional[int] = 0
+    current_step: Optional[str] = None
     execution_log: Optional[str]
     started_at: Optional[datetime]
     completed_at: Optional[datetime]

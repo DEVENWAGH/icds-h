@@ -21,32 +21,56 @@ import { useNavigate } from "react-router-dom"
 const SEV_COLOR = { CRITICAL: "#ff2d55", HIGH: "#ff9500", MEDIUM: "#ffd60a", LOW: "#00ff88" }
 const ATTACK_COLORS = {
   DDoS: "#f43f5e",
+  DoS: "#e11d48",
   Ransomware: "#a855f7",
+  Backdoor: "#ec4899",
+  Injection: "#8b5cf6",
+  "Password Attack": "#fb923c",
+  Scanning: "#38bdf8",
+  XSS: "#06b6d4",
+  MITM: "#14b8a6",
   Phishing: "#f97316",
   "Insider Threat": "#facc15",
   "Port Scan": "#38bdf8",
   "Brute Force": "#fb923c",
+  "Anomaly (Zero-Day)": "#6366f1",
   Normal: "#22c55e"
 }
 const LOG_COLORS = { info: "#94a3b8", success: "#00ff88", warn: "#ffd60a", danger: "#ff2d55" }
 
 function AttackIcon({ type, size = 14 }) {
-  switch (type) {
-    case "DDoS":
-      return <Zap size={size} className="text-rose-400 flex-shrink-0" />
-    case "Ransomware":
-      return <Lock size={size} className="text-purple-400 flex-shrink-0" />
-    case "Phishing":
-      return <AlertTriangle size={size} className="text-orange-400 flex-shrink-0" />
-    case "Insider Threat":
-      return <User size={size} className="text-amber-400 flex-shrink-0" />
-    case "Port Scan":
-      return <Crosshair size={size} className="text-sky-400 flex-shrink-0" />
-    case "Brute Force":
-      return <Flame size={size} className="text-orange-500 flex-shrink-0" />
-    default:
-      return <Shield size={size} className="text-emerald-400 flex-shrink-0" />
+  const norm = String(type || "").toLowerCase()
+  if (norm.includes("ddos") || norm.includes("dos")) {
+    return <Zap size={size} className="text-rose-400 flex-shrink-0" />
   }
+  if (norm.includes("ransomware")) {
+    return <Lock size={size} className="text-purple-400 flex-shrink-0" />
+  }
+  if (norm.includes("backdoor")) {
+    return <ShieldOff size={size} className="text-pink-400 flex-shrink-0" />
+  }
+  if (norm.includes("injection") || norm.includes("xss")) {
+    return <Terminal size={size} className="text-violet-400 flex-shrink-0" />
+  }
+  if (norm.includes("password") || norm.includes("brute")) {
+    return <Flame size={size} className="text-orange-500 flex-shrink-0" />
+  }
+  if (norm.includes("scan")) {
+    return <Crosshair size={size} className="text-sky-400 flex-shrink-0" />
+  }
+  if (norm.includes("mitm")) {
+    return <Radio size={size} className="text-teal-400 flex-shrink-0" />
+  }
+  if (norm.includes("phish")) {
+    return <AlertTriangle size={size} className="text-orange-400 flex-shrink-0" />
+  }
+  if (norm.includes("insider")) {
+    return <User size={size} className="text-amber-400 flex-shrink-0" />
+  }
+  if (norm.includes("anomaly") || norm.includes("zero")) {
+    return <Search size={size} className="text-indigo-400 flex-shrink-0" />
+  }
+  return <Shield size={size} className="text-emerald-400 flex-shrink-0" />
 }
 
 const timeAgo = (dt) => {
@@ -90,14 +114,14 @@ function MiniStat({ label, value, icon: Icon, color = "cyan", sub, pulse }) {
 function Drawer({ open, onClose, title, children }) {
   return (
     <>
-      {open && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 transition-opacity" onClick={onClose} />}
-      <div className={`fixed top-0 right-0 h-full w-[500px] max-w-full bg-[#070f1f]/95 backdrop-blur-md border-l border-cyan-500/30 z-50 flex flex-col transition-transform duration-300 shadow-2xl ${open ? "translate-x-0" : "translate-x-full"}`}>
-        <div className="flex items-center justify-between p-4 border-b border-cyan-500/20 bg-slate-950/60">
+      {open && <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 transition-opacity" onClick={onClose} />}
+      <div className={`fixed top-0 right-0 h-full w-[500px] max-w-full bg-[#0a0a0a] border-l border-[#262626] z-50 flex flex-col transition-transform duration-300 shadow-2xl ${open ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex items-center justify-between p-4 border-b border-[#262626] bg-[#050505]">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="font-mono font-bold text-cyber-cyan text-sm tracking-wider uppercase">{title}</span>
+            <span className="w-2 h-2 rounded-full bg-cyan pulse-dot" />
+            <span className="font-mono font-semibold text-white text-xs tracking-wider uppercase">{title}</span>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition"><X size={16} /></button>
+          <button onClick={onClose} className="text-mute hover:text-white p-1.5 rounded-md hover:bg-[#171717] transition cursor-pointer"><X size={15} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
       </div>
@@ -271,11 +295,16 @@ function FirewallPanel({ rules, onAutoBlock, onRemove, onAddOpen, loading }) {
 
 const ATTACK_TYPES = [
   { type: "DDoS", label: "DDoS", color: "#f43f5e" },
+  { type: "DoS", label: "DoS", color: "#e11d48" },
   { type: "Ransomware", label: "Ransomware", color: "#a855f7" },
+  { type: "Backdoor", label: "Backdoor", color: "#ec4899" },
+  { type: "Injection", label: "Injection", color: "#8b5cf6" },
+  { type: "Password Attack", label: "Password", color: "#fb923c" },
+  { type: "Scanning", label: "Scanning", color: "#38bdf8" },
+  { type: "XSS", label: "XSS", color: "#06b6d4" },
+  { type: "MITM", label: "MITM", color: "#14b8a6" },
   { type: "Phishing", label: "Phishing", color: "#f97316" },
   { type: "Insider Threat", label: "Insider", color: "#facc15" },
-  { type: "Port Scan", label: "Port Scan", color: "#38bdf8" },
-  { type: "Brute Force", label: "Brute Force", color: "#fb923c" },
 ]
 
 const SCENARIOS = [
@@ -285,22 +314,27 @@ const SCENARIOS = [
   { key: "apt_intrusion", label: "APT Intrusion", desc: "Recon -> Access -> Insider -> Zero-Day -> Ransomware" },
   { key: "data_exfiltration", label: "Data Exfiltration", desc: "Phishing -> Insider (CRIT) -> Port Scan" },
   { key: "ddos_wave", label: "DDoS Flood Wave", desc: "3x Simultaneous CRITICAL SYN Flood" },
-  { key: "iot_botnet_ddos", label: "IoT Botnet DDoS", desc: "Port Scan -> DDoS -> DDoS (medical IoT)" },
   { key: "zero_day_outbreak", label: "Zero-Day Outbreak", desc: "Unknown pattern x2 -> Ransomware" },
-  { key: "memory_recall", label: "Memory Recall Drill", desc: "Repeat Ransomware x4 -> DDoS (builds Threat Memory)" },
-  { key: "full_spectrum", label: "Full Spectrum Siege", desc: "All 6 attack vectors sequenced" },
 ]
 
 function SimulatorPanel({ sim }) {
-  const { stage, log, loading, fireAttack, fireScenario, fireAnomaly, clearLog } = sim
+  const { stage, log, loading, fireAttack, fireScenario, fireAnomaly, uploadCsv, clearLog } = sim
   const [selected, setSelected] = useState("DDoS")
   const [severity, setSeverity] = useState("HIGH")
   const [activeTab, setActiveTab] = useState("attacks")
+  const fileInputRef = useRef(null)
 
   const stageColor = {
     IDLE: "#64748b", INJECTING: "#ffd60a", DETECTED: "#ff9500",
     CLASSIFYING: "#00e5ff", QIGA: "#a855f7", FIREWALL: "#f43f5e",
     COMPLETE: "#00ff88", ERROR: "#ff2d55"
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      uploadCsv(file)
+    }
   }
 
   return (
@@ -316,9 +350,9 @@ function SimulatorPanel({ sim }) {
       </div>
 
       <div className="flex gap-1 bg-black/50 p-0.5 rounded-lg border border-cyan-500/20">
-        {["attacks", "scenarios"].map(t => (
+        {["attacks", "scenarios", "upload"].map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
-            className={`flex-1 py-1 text-[10px] font-mono uppercase rounded-md transition ${activeTab === t ? "bg-cyan-500/20 text-cyber-cyan font-bold border border-cyan-500/40 shadow-[0_0_10px_rgba(0,229,255,0.15)]" : "text-slate-400 hover:text-slate-200"}`}>
+            className={`flex-1 py-1 text-[10px] font-mono uppercase rounded-md transition cursor-pointer ${activeTab === t ? "bg-cyan-500/20 text-cyber-cyan font-bold border border-cyan-500/40 shadow-[0_0_10px_rgba(0,229,255,0.15)]" : "text-slate-400 hover:text-slate-200"}`}>
             {t}
           </button>
         ))}
@@ -326,13 +360,13 @@ function SimulatorPanel({ sim }) {
 
       {activeTab === "attacks" ? (
         <>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-3 gap-1 overflow-y-auto pr-0.5" style={{ maxHeight: "160px" }}>
             {ATTACK_TYPES.map(({ type, label, color }) => (
               <button key={type} onClick={() => setSelected(type)}
-                className={`cyber-card py-2 px-1 text-center transition-all duration-150 hover:scale-[1.03] flex flex-col items-center gap-1 cursor-pointer ${selected === type ? "border-2 shadow-[0_0_12px_rgba(0,229,255,0.2)]" : "opacity-80 hover:opacity-100"}`}
+                className={`cyber-card py-1.5 px-1 text-center transition-all duration-150 hover:scale-[1.03] flex flex-col items-center gap-0.5 cursor-pointer ${selected === type ? "border-2 shadow-[0_0_12px_rgba(0,229,255,0.2)]" : "opacity-80 hover:opacity-100"}`}
                 style={selected === type ? { borderColor: color, background: `${color}18` } : {}}>
-                <AttackIcon type={type} size={16} />
-                <div className="text-[9px] font-mono text-slate-200 font-bold truncate w-full">{label}</div>
+                <AttackIcon type={type} size={13} />
+                <div className="text-[8px] font-mono text-slate-200 font-bold truncate w-full">{label}</div>
               </button>
             ))}
           </div>
@@ -348,7 +382,7 @@ function SimulatorPanel({ sim }) {
           </div>
 
           <button onClick={() => fireAttack(selected, severity)} disabled={loading}
-            className="w-full py-2.5 font-mono font-bold text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-150 shadow-lg hover:brightness-125 active:scale-[0.98] cursor-pointer"
+            className="w-full py-2 font-mono font-bold text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-150 shadow-lg hover:brightness-125 active:scale-[0.98] cursor-pointer"
             style={{
               background: loading ? "#1e293b" : "linear-gradient(135deg,#ff2d55,#ff6b35)",
               color: loading ? "#94a3b8" : "#fff",
@@ -360,17 +394,17 @@ function SimulatorPanel({ sim }) {
           </button>
 
           <button onClick={() => fireAnomaly(severity)} disabled={loading}
-            className="w-full py-2 font-mono font-bold text-[11px] rounded-lg flex items-center justify-center gap-2 transition-all duration-150 hover:brightness-125 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+            className="w-full py-1.5 font-mono font-bold text-[10px] rounded-lg flex items-center justify-center gap-1.5 transition-all duration-150 hover:brightness-125 active:scale-[0.98] cursor-pointer disabled:opacity-50"
             style={{
               background: "linear-gradient(135deg,#7c3aed,#0ea5e9)",
               color: "#fff",
               border: "1px solid rgba(168,85,247,0.5)"
             }}
             title="Fire a novel pattern the MLP has never seen - caught by the Isolation Forest as a zero-day">
-            <Search size={12} /> LAUNCH ZERO-DAY (UNKNOWN)
+            <Search size={11} /> LAUNCH ZERO-DAY (UNKNOWN)
           </button>
         </>
-      ) : (
+      ) : activeTab === "scenarios" ? (
         <div className="space-y-1.5 overflow-y-auto pr-1" style={{ maxHeight: "230px" }}>
           {SCENARIOS.map(s => (
             <button key={s.key} onClick={() => fireScenario(s.key)} disabled={loading}
@@ -382,6 +416,20 @@ function SimulatorPanel({ sim }) {
               <Play size={11} className="text-slate-500 group-hover:text-cyber-cyan transition flex-shrink-0" />
             </button>
           ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-3 p-4 cyber-card text-center flex-1">
+          <FileText size={28} className="text-cyan-400 animate-bounce" />
+          <div>
+            <div className="text-xs font-mono font-bold text-white">Manual Dataset Upload</div>
+            <div className="text-[10px] font-mono text-slate-400 mt-1">Upload TON_IoT, PhiUSIIL, or CERT .csv files for live ML pipeline analysis</div>
+          </div>
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
+          <button onClick={() => fileInputRef.current?.click()} disabled={loading}
+            className="w-full py-2.5 font-mono font-bold text-xs rounded-lg btn-primary cursor-pointer flex items-center justify-center gap-2">
+            {loading ? <RefreshCw size={13} className="animate-spin text-slate-950" /> : <FileText size={13} />}
+            {loading ? "PROCESSING CSV..." : "SELECT CSV FILE"}
+          </button>
         </div>
       )}
 
@@ -574,8 +622,14 @@ export default function SOCCommand() {
 
   const unacknowledgedAlerts = alerts.filter(a => !a.is_acknowledged)
 
+  // Combined threats feed (live WebSocket threats + detected database logs)
+  const combinedThreats = [
+    ...liveThreats,
+    ...logs.filter(l => l.attack_type && l.attack_type !== "Normal" && !liveThreats.some(lt => String(lt.attack_log_id || lt.id) === String(l.id)))
+  ]
+
   // Filtered threats feed
-  const filteredThreats = liveThreats.filter(t => {
+  const filteredThreats = combinedThreats.filter(t => {
     if (feedFilter === "ALL") return true
     return t.severity === feedFilter
   })

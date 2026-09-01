@@ -4,9 +4,12 @@ import api from '../utils/api'
 import { useIncidentStore } from '../store'
 
 const TYPE_COLORS = {
-  Ransomware: '#ff2d55', DDoS: '#ff9500', 'Brute Force': '#ffd60a',
-  Phishing: '#bf5af2', 'Insider Threat': '#00e5ff', 'SQL Injection': '#ff6b6b',
-  Botnet: '#ff4500', BENIGN: '#00ff88',
+  Ransomware: '#ff2d55', DDoS: '#ff9500', DoS: '#e11d48',
+  Backdoor: '#ec4899', Injection: '#8b5cf6', 'Password Attack': '#fb923c',
+  Scanning: '#38bdf8', XSS: '#06b6d4', MITM: '#14b8a6',
+  Phishing: '#bf5af2', 'Insider Threat': '#00e5ff', 'Anomaly (Zero-Day)': '#6366f1',
+  'Brute Force': '#ffd60a', 'SQL Injection': '#ff6b6b',
+  Botnet: '#ff4500', BENIGN: '#00ff88', Normal: '#00ff88',
 }
 
 const OutcomeBadge = ({ outcome }) => {
@@ -259,14 +262,14 @@ export default function MemoryPage() {
             </thead>
             <tbody>
               {entries.map(e => (
-                <tr key={e.id} className="border-b border-cyber-border/30 hover:bg-white/2">
+                <tr key={e.id} className="border-b border-cyber-border/30 hover:bg-white/[0.04] transition-colors">
                   <td className="py-2 pr-3 text-cyber-cyan">{e.attack_log_id}</td>
                   <td className="py-2 pr-3 font-bold" style={{ color: TYPE_COLORS[e.attack_type] || '#888' }}>{e.attack_type}</td>
                   <td className="py-2 pr-3 text-gray-400">{e.severity}</td>
                   <td className="py-2 pr-3 text-white">{e.risk_score?.toFixed(1)}</td>
                   <td className="py-2 pr-3 text-cyber-cyan">{(e.recommended_actions ?? e.actions ?? []).join(', ') || '—'}</td>
                   <td className="py-2 pr-3"><OutcomeBadge outcome={e.outcome} /></td>
-                  <td className="py-2 text-gray-600">{new Date(e.recorded_at).toLocaleTimeString()}</td>
+                  <td className="py-2 text-slate-400">{new Date(e.recorded_at).toLocaleTimeString()}</td>
                 </tr>
               ))}
               {entries.length === 0 && (

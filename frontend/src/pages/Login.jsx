@@ -19,7 +19,6 @@ export default function Login() {
     { label: 'Clinical (L4)', email: 'clinical@icds-h.com', pass: 'Clinical@1234', role: 'MedDirector' },
   ]
 
-  // ── Backend Health Check ─────────────────────────────────────────────────
   const checkBackendHealth = async () => {
     setBackendStatus('checking')
     try {
@@ -32,7 +31,6 @@ export default function Login() {
       setBackendStatus('offline')
       return false
     } catch (err) {
-      // Try the root endpoint as fallback
       try {
         const rootResponse = await api.get('/', { timeout: 5000 })
         if (rootResponse.data?.message) {
@@ -41,7 +39,7 @@ export default function Login() {
           return true
         }
       } catch {
-        // Both failed
+        // Fallback check
       }
       setBackendStatus('offline')
       return false
@@ -50,7 +48,6 @@ export default function Login() {
 
   useEffect(() => {
     checkBackendHealth()
-    // Periodically check if backend comes online
     const interval = setInterval(async () => {
       if (backendStatus === 'offline') {
         await checkBackendHealth()
@@ -68,11 +65,10 @@ export default function Login() {
     e.preventDefault()
     setLoading(true); setError('')
 
-    // Pre-check backend availability
     if (backendStatus === 'offline') {
       const isOnline = await checkBackendHealth()
       if (!isOnline) {
-        setError('Backend server is not running. Please start it with: uvicorn main:app --reload')
+        setError('Backend server is unreachable on port 8000. Please start uvicorn main:app')
         setLoading(false)
         return
       }
@@ -84,79 +80,72 @@ export default function Login() {
       navigate('/app/command')
     } catch (err) {
       if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
-        setError('Connection timeout. Backend server may be starting up. Please retry.')
+        setError('Connection timeout. Backend server may still be initializing.')
         setBackendStatus('offline')
       } else if (err.code === 'ERR_NETWORK' || !err.response) {
-        setError('Cannot connect to backend server. Please ensure it is running on port 8000.')
+        setError('Cannot reach backend on port 8000. Please verify the server is running.')
         setBackendStatus('offline')
       } else if (err.response?.status === 401) {
-        setError('Invalid credentials. Please check your email and password.')
+        setError('Invalid credentials. Please verify your email and password.')
       } else if (err.response?.status === 403) {
-        setError('Account is disabled. Contact your administrator.')
-      } else if (err.response?.status >= 500) {
-        setError('Server error. The backend encountered an internal issue.')
+        setError('Clearance profile disabled. Contact security officer.')
       } else {
         setError(err.response?.data?.detail || 'Authentication failed. Please try again.')
       }
     } finally { setLoading(false) }
   }
 
-  const statusColor = backendStatus === 'online' ? 'emerald' : backendStatus === 'offline' ? 'rose' : 'amber'
-  const statusText = backendStatus === 'online' ? 'BACKEND ONLINE' : backendStatus === 'offline' ? 'BACKEND OFFLINE' : 'CHECKING...'
-  const StatusIcon = backendStatus === 'online' ? Wifi : backendStatus === 'offline' ? WifiOff : RefreshCw
-
   return (
-    <div className="min-h-screen bg-cyber-bg grid-bg flex flex-col items-center justify-center p-4 selection:bg-cyan-500/30 selection:text-cyan-200 relative overflow-hidden">
-      {/* Background Ambience */}
-      <div className="fixed top-1/4 left-1/2 -translate-x-1/2 w-[550px] h-[550px] bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="fixed bottom-10 -right-20 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 selection:bg-white selection:text-black relative overflow-hidden font-sans">
+      {/* Subtle Mesh Background Glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[650px] h-[400px] mesh-gradient-hero pointer-events-none -z-10" />
 
-      {/* Back to Home link */}
+      {/* Back to Home Navigation */}
       <button 
         onClick={() => navigate('/')} 
-        className="absolute top-6 left-6 text-xs font-mono text-slate-400 hover:text-cyber-cyan flex items-center gap-1.5 transition-colors cursor-pointer py-1.5 px-3 rounded-lg hover:bg-white/5 border border-transparent hover:border-cyan-500/20"
+        className="absolute top-6 left-6 text-xs font-mono text-mute hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer py-1.5 px-3 rounded-md hover:bg-[#0a0a0a] border border-transparent hover:border-[#262626]"
       >
-        <ArrowLeft size={14} /> Back to Homepage
+        <ArrowLeft size={14} /> Back to Overview
       </button>
 
       <div className="relative w-full max-w-md my-8">
-        <div className="relative cyber-card p-7 sm:p-8 border-cyan-500/30 shadow-2xl">
-          {/* Top Shield Emblem */}
-          <div className="flex justify-center mb-5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-600 flex items-center justify-center shadow-[0_0_25px_rgba(0,229,255,0.45)] border border-cyan-300/40">
-              <Shield size={32} className="text-slate-950 font-black" />
+        <div className="card-marketing-large p-7 sm:p-8 shadow-2xl bg-[#0a0a0a] border border-[#262626]">
+          {/* Brand Mark */}
+          <div className="flex justify-center mb-4">
+            <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center shadow-sm">
+              <Shield size={22} className="text-black font-black" />
             </div>
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-black text-center text-white mb-1 tracking-tight">SOC Clearance Authentication</h1>
-          <p className="text-xs text-slate-400 text-center font-mono mb-6">Encrypted Zero-Trust Portal for Digital Health Operations</p>
+          <h1 className="text-xl font-semibold text-center text-white mb-1 tracking-tight">SOC Authentication</h1>
+          <p className="text-xs text-mute text-center font-mono mb-6">Zero-Trust Clinical Defense Console</p>
 
           {/* Backend Status Indicator */}
-          <div className={`mb-4 flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg border text-[10px] font-mono uppercase tracking-widest transition-all ${
+          <div className={`mb-4 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md border text-[11px] font-mono uppercase tracking-wide transition-all ${
             backendStatus === 'online' 
-              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
+              ? 'bg-teal-950/70 border-teal-800/80 text-teal-300'
               : backendStatus === 'offline'
-              ? 'bg-rose-950/40 border-rose-500/30 text-rose-400'
-              : 'bg-amber-950/40 border-amber-500/30 text-amber-400'
+              ? 'bg-red-950/70 border-red-800/80 text-red-300'
+              : 'bg-yellow-950/70 border-yellow-800/80 text-yellow-300'
           }`}>
-            <StatusIcon size={12} className={backendStatus === 'checking' ? 'animate-spin' : ''} />
-            <span>{statusText}</span>
+            <span className={`w-2 h-2 rounded-full ${backendStatus === 'online' ? 'bg-cyan pulse-dot' : backendStatus === 'offline' ? 'bg-error' : 'bg-warning'}`} />
+            <span>{backendStatus === 'online' ? 'BACKEND ONLINE' : backendStatus === 'offline' ? 'BACKEND OFFLINE' : 'CHECKING...'}</span>
             {backendStatus === 'offline' && (
               <button
                 type="button"
                 onClick={checkBackendHealth}
-                className="ml-2 text-rose-300 hover:text-cyan-400 transition-colors cursor-pointer"
+                className="ml-2 text-red-400 hover:text-white transition-colors cursor-pointer"
                 title="Retry connection"
               >
-                <RefreshCw size={11} />
+                <RefreshCw size={12} />
               </button>
             )}
           </div>
 
           {/* Quick Demo Credentials Picker */}
-          <div className="mb-6 bg-black/40 p-2.5 rounded-xl border border-cyan-500/20">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
-              <Zap size={11} className="text-cyber-cyan" /> Select Quick Clearance Profile:
+          <div className="mb-6 bg-[#141414] p-2.5 rounded-lg border border-[#262626]">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-mute mb-2 flex items-center gap-1.5">
+              <Zap size={11} className="text-white" /> Select Role Clearance:
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {quickRoles.map((r) => (
@@ -164,14 +153,14 @@ export default function Login() {
                   key={r.label}
                   type="button"
                   onClick={() => selectRole(r.email, r.pass)}
-                  className={`py-1.5 px-2 rounded-lg text-left text-[10px] font-mono transition-all cursor-pointer border ${
+                  className={`py-1.5 px-2 rounded-md text-left text-[11px] font-mono transition-all cursor-pointer border ${
                     form.email === r.email
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyber-cyan font-bold shadow-[0_0_8px_rgba(0,229,255,0.2)]'
-                      : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                      ? 'bg-black border-white text-white font-semibold shadow-sm'
+                      : 'bg-black border-[#262626] text-mute hover:text-white hover:border-[#404040]'
                   }`}
                 >
-                  <div className="truncate font-semibold">{r.label}</div>
-                  <div className="text-[9px] text-slate-500 truncate">{r.role}</div>
+                  <div className="truncate">{r.label}</div>
+                  <div className="text-[9px] text-mute truncate">{r.role}</div>
                 </button>
               ))}
             </div>
@@ -179,50 +168,50 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-[11px] font-mono text-slate-300 uppercase tracking-wider mb-1.5 block">
-                Research Identifier / Email
+              <label className="text-[11px] font-mono text-body uppercase tracking-wide mb-1.5 block">
+                Healthcare Identifier / Email
               </label>
               <div className="relative">
-                <Fingerprint size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-400" />
+                <Fingerprint size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute" />
                 <input
                   type="email"
                   required
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="admin@icds-h.com"
-                  className="w-full bg-slate-950/80 border border-cyan-500/25 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-600 font-mono focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all"
+                  className="w-full form-input pl-9 text-xs"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[11px] font-mono text-slate-300 uppercase tracking-wider mb-1.5 block">
-                Security Passcode / Biometric Key
+              <label className="text-[11px] font-mono text-body uppercase tracking-wide mb-1.5 block">
+                Security Passcode
               </label>
               <div className="relative">
-                <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-400" />
+                <Key size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••••••"
-                  className="w-full bg-slate-950/80 border border-cyan-500/25 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 transition-all"
+                  className="w-full form-input pl-9 pr-9 text-xs"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors p-1 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-mute hover:text-white transition-colors p-1 cursor-pointer"
                   aria-label="Toggle password visibility"
                 >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-rose-300 text-xs font-mono bg-rose-950/60 border border-rose-500/50 rounded-xl px-3 py-2.5 shadow-[0_0_10px_rgba(255,45,85,0.2)]">
-                <AlertCircle size={15} className="text-rose-400 flex-shrink-0 mt-0.5" /> 
+              <div className="flex items-start gap-2 text-red-300 text-xs font-mono bg-red-950/70 border border-red-800/80 rounded-md px-3 py-2">
+                <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" /> 
                 <span>{error}</span>
               </div>
             )}
@@ -230,34 +219,30 @@ export default function Login() {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full py-3 rounded-xl font-mono font-bold text-slate-950 text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg hover:brightness-110 active:scale-[0.99]"
-              style={{ background: 'linear-gradient(135deg, #00e5ff, #0284c7)' }}
+              className="w-full py-2.5 rounded-md font-sans font-medium text-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer bg-white hover:bg-gray-200 shadow-sm disabled:opacity-50"
             >
               {loading ? (
-                <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
               ) : (
-                <><Lock size={15} /> Authenticate & Access SOC</>
+                <><Lock size={14} /> Authenticate &amp; Enter SOC</>
               )}
             </button>
           </form>
 
           {/* Security Status Box */}
-          <div className="mt-6 border-t border-cyan-500/20 pt-4">
-            <div className="flex items-center justify-between text-[11px] font-mono">
-              <span className={`flex items-center gap-1.5 text-${statusColor}-400`}>
-                <span className={`w-2 h-2 rounded-full bg-${statusColor}-400 pulse-dot shadow-[0_0_8px_${statusColor === 'emerald' ? '#10b981' : statusColor === 'rose' ? '#f43f5e' : '#f59e0b'}]`} />
-                <span className="font-bold">SYSTEM INTEGRITY: {backendStatus === 'online' ? '100%' : 'DEGRADED'}</span>
-              </span>
-              <span className="text-slate-400">TLS 1.3 / AES-256</span>
-            </div>
+          <div className="mt-6 border-t border-[#262626] pt-4 flex items-center justify-between text-[11px] font-mono text-mute">
+            <span className="flex items-center gap-1.5 text-body">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
+              <span>TLS 1.3 · AES-256</span>
+            </span>
+            <span>HIPAA §164.312 Compliant</span>
           </div>
         </div>
 
-        <p className="text-center text-[10px] text-slate-500 font-mono mt-4">
-          AUTHORIZED CLINICAL & SECURITY PERSONNEL ONLY · ACTIVITY AUDITED UNDER HIPAA §164.312
+        <p className="text-center text-[11px] text-mute font-mono mt-4">
+          AUTHORIZED CLINICAL &amp; SECURITY PERSONNEL ONLY · ALL LOGINS AUDITED
         </p>
       </div>
     </div>
   )
 }
-

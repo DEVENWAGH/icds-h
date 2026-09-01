@@ -3,20 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ICDS-H | Intelligent Cyber Defense System for Healthcare</title>
+  <title>ICDS-H — Intelligent Cyber Defense System for Healthcare</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300..900;1,300..900&family=Fira+Code:wght@300..700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; background: #030712; color: #e2e8f0; font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: #050a14; }
-    ::-webkit-scrollbar-thumb { background: #00e5ff33; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #00e5ff88; }
+    body {
+      margin: 0;
+      background-color: #000000;
+      color: #ededed;
+      font-family: 'Geist', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    ::selection {
+      background: #ffffff;
+      color: #000000;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #000000; }
+    ::-webkit-scrollbar-thumb { background: #262626; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #404040; }
   </style>
 </head>
-<body class="bg-cyber-bg text-slate-100 antialiased selection:bg-cyan-500/30 selection:text-cyan-200">
+<body class="bg-black text-[#ededed] antialiased">
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>

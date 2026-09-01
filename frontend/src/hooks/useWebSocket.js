@@ -367,52 +367,54 @@ export function useWebSocket() {
           // 5. LIFECYCLE UPDATE
           // =======================================================
 
-          if (
-            msg.type ===
-            'lifecycle_update'
-          ) {
-            const data =
-              msg.data || {}
+          if (msg.type === 'lifecycle_update') {
+            const data = msg.data || {}
+            const attackLogId = data.attack_log_id
+            const status = String(data.status || '').toUpperCase()
 
-            const attackLogId =
-              data.attack_log_id
-
-            const status =
-              String(
-                data.status || ''
-              ).toUpperCase()
-
-            console.log(
-              '[WS] Lifecycle update:',
-              attackLogId,
-              status
-            )
-
-            useSOCStore
-              .getState()
-              .updateLifecycle(
-                attackLogId,
-                status
-              )
+            console.log('[WS] Lifecycle update:', attackLogId, status)
+            useSOCStore.getState().updateLifecycle(attackLogId, status)
 
             window.dispatchEvent(
-              new CustomEvent(
-                'lifecycle-update',
-                {
-                  detail: data,
-                }
-              )
+              new CustomEvent('lifecycle-update', { detail: data })
             )
+            window.dispatchEvent(
+              new CustomEvent('soc-event', { detail: msg })
+            )
+            return
+          }
+
+          // =======================================================
+          // 5b. RECOVERY PROGRESS UPDATE
+          // =======================================================
+
+          if (msg.type === 'recovery_progress') {
+            const data = msg.data || {}
+            console.log('[WS] Recovery Progress:', data)
 
             window.dispatchEvent(
-              new CustomEvent(
-                'soc-event',
-                {
-                  detail: msg,
-                }
-              )
+              new CustomEvent('recovery-progress', { detail: data })
             )
+            window.dispatchEvent(
+              new CustomEvent('soc-event', { detail: msg })
+            )
+            return
+          }
 
+          // =======================================================
+          // 5c. RECOMMENDATION REJECTED
+          // =======================================================
+
+          if (msg.type === 'recommendation_rejected') {
+            const data = msg.data || {}
+            console.log('[WS] Recommendation Rejected:', data)
+
+            window.dispatchEvent(
+              new CustomEvent('recommendation-rejected', { detail: data })
+            )
+            window.dispatchEvent(
+              new CustomEvent('soc-event', { detail: msg })
+            )
             return
           }
 

@@ -33,7 +33,10 @@ RESPONSE_ACTIONS = [
         "recovery_time": 15,
         "effectiveness": 0.75,
         "resource_units": 2,
-        "applicable_attacks": ["Ransomware", "Insider Threat", "DDoS"],
+        "applicable_attacks": [
+            "Ransomware", "Insider Threat", "DDoS", "DoS",
+            "Backdoor", "MITM", "Anomaly (Zero-Day)",
+        ],
         "policy_min_severity": "MEDIUM",
     },
     {
@@ -45,7 +48,10 @@ RESPONSE_ACTIONS = [
         "recovery_time": 5,
         "effectiveness": 0.85,
         "resource_units": 1,
-        "applicable_attacks": ["DDoS", "Phishing"],
+        "applicable_attacks": [
+            "DDoS", "DoS", "Phishing", "Scanning", "XSS",
+            "Injection", "MITM", "Anomaly (Zero-Day)",
+        ],
         "policy_min_severity": "LOW",
     },
     {
@@ -57,7 +63,7 @@ RESPONSE_ACTIONS = [
         "recovery_time": 120,
         "effectiveness": 0.95,
         "resource_units": 4,
-        "applicable_attacks": ["Ransomware"],
+        "applicable_attacks": ["Ransomware", "Backdoor"],
         "policy_min_severity": "HIGH",
     },
     {
@@ -69,7 +75,9 @@ RESPONSE_ACTIONS = [
         "recovery_time": 10,
         "effectiveness": 0.70,
         "resource_units": 1,
-        "applicable_attacks": ["Insider Threat", "Phishing"],
+        "applicable_attacks": [
+            "Insider Threat", "Phishing", "Password Attack",
+        ],
         "policy_min_severity": "LOW",
     },
     {
@@ -81,8 +89,40 @@ RESPONSE_ACTIONS = [
         "recovery_time": 20,
         "effectiveness": 0.82,
         "resource_units": 2,
-        "applicable_attacks": ["Phishing", "Ransomware"],
+        "applicable_attacks": [
+            "Phishing", "Ransomware", "XSS", "Injection",
+            "Backdoor",
+        ],
         "policy_min_severity": "MEDIUM",
+    },
+    {
+        "id": "WAF_RULE",
+        "name": "Deploy WAF Rule",
+        "cost": 1,
+        "downtime": 0.05,
+        "data_loss": 0.01,
+        "recovery_time": 3,
+        "effectiveness": 0.78,
+        "resource_units": 1,
+        "applicable_attacks": [
+            "XSS", "Injection", "Scanning", "Phishing",
+        ],
+        "policy_min_severity": "LOW",
+    },
+    {
+        "id": "MONITOR_ENHANCED",
+        "name": "Enhanced Monitoring",
+        "cost": 1,
+        "downtime": 0.0,
+        "data_loss": 0.0,
+        "recovery_time": 0,
+        "effectiveness": 0.55,
+        "resource_units": 1,
+        "applicable_attacks": [
+            "Scanning", "MITM", "Password Attack",
+            "Insider Threat", "Anomaly (Zero-Day)",
+        ],
+        "policy_min_severity": "LOW",
     },
 ]
 
@@ -238,7 +278,11 @@ class QIGAOptimizer:
             - all_actions: full scored action table
             - weights: (alpha, beta, gamma)
         """
-        valid_attacks = {"DDoS", "Ransomware", "Phishing", "Insider Threat"}
+        valid_attacks = {
+            "DDoS", "DoS", "Ransomware", "Backdoor", "Injection",
+            "Password Attack", "Scanning", "XSS", "MITM",
+            "Phishing", "Insider Threat", "Anomaly (Zero-Day)",
+        }
         if attack_type not in valid_attacks:
             raise ValueError(f"QIGA optimization is not supported for attack type: {attack_type}")
 

@@ -720,17 +720,101 @@ export default function Response() {
   }
 
 
+  const reject = async (
+    recommendationId
+  ) => {
+    if (
+      !canApprove ||
+      !recommendationId ||
+      selectedAttackLogId === null ||
+      selectedAttackLogId === undefined
+    ) {
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await api.patch(
+        `/recommendations/${recommendationId}/reject`
+      )
+      console.log(
+        '[Response] Recommendation rejected:',
+        response.data
+      )
+      await loadResponseData(
+        selectedAttackLogId,
+        false
+      )
+    } catch (err) {
+      console.error(
+        '[Response] Rejection failed:',
+        err
+      )
+      setError(
+        err?.response?.data?.detail ||
+          'Unable to reject this response action.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const handleRecoveryProgress = (event) => {
+      const data = event?.detail ?? {}
+      if (
+        selectedRecovery &&
+        String(selectedRecovery.id) === String(data.recovery_id)
+      ) {
+        setSelectedRecovery((prev) => ({
+          ...prev,
+          progress_percent: data.progress_percent,
+          current_step: data.current_step,
+          status: data.status,
+        }))
+      }
+      setRecoveries((prev) =>
+        prev.map((r) =>
+          String(r.id) === String(data.recovery_id)
+            ? {
+                ...r,
+                progress_percent: data.progress_percent,
+                current_step: data.current_step,
+                status: data.status,
+              }
+            : r
+        )
+      )
+    }
+
+    window.addEventListener(
+      'recovery-progress',
+      handleRecoveryProgress
+    )
+    return () => {
+      window.removeEventListener(
+        'recovery-progress',
+        handleRecoveryProgress
+      )
+    }
+  }, [selectedRecovery?.id])
+
   /*
    * -------------------------------------------------------
    * DERIVED RESPONSE DATA
    * -------------------------------------------------------
    */
 
+  const pendingRecs = recs.filter(
+    (recommendation) =>
+      recommendation.status === 'PENDING' ||
+      (!recommendation.status && !recommendation.is_approved)
+  )
+
   const primary =
-    recs.find(
-      (recommendation) =>
-        !recommendation.is_approved
-    ) ??
+    pendingRecs[0] ??
     recs[0] ??
     null
 
@@ -1536,73 +1620,58 @@ export default function Response() {
                     )}
 
 
-                    {/* APPROVAL BUTTON */}
+                    {/* APPROVAL & REJECTION BUTTONS */}
 
-                    {primary.is_approved ? (
-
+                    {primary.status === 'REJECTED' ? (
+                      <div className="mt-5 w-full py-3 rounded-lg text-sm font-bold font-mono text-center border border-rose-500/40 bg-rose-950/30 text-rose-400">
+                        ✕ REJECTED BY OPERATOR
+                      </div>
+                    ) : primary.is_approved || primary.status === 'APPROVED' ? (
                       <div className="mt-5 w-full py-3 rounded-lg text-sm font-bold font-mono text-center border border-green-500/40 bg-green-900/20 text-green-400">
                         ✓ AUTHORIZED — RECOVERY WORKFLOW STARTED
                       </div>
-
                     ) : approvalLocked ? (
-
                       <div className="mt-5 p-3 rounded-lg border border-yellow-700/30 bg-yellow-900/10 text-center">
-
                         <p className="text-xs text-yellow-400 font-mono font-bold">
                           RESPONSE AUTHORIZATION LOCKED
                         </p>
-
                         <p className="text-[11px] text-gray-500 font-mono mt-1">
-                          Another response action for this AttackLog
-                          has already been authorized or recovery has started.
+                          Another response action for this AttackLog has already been authorized or recovery has started.
                         </p>
-
                       </div>
-
                     ) : canApprove ? (
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          approve(
-                            primary.id
-                          )
-                        }
-                        disabled={
-                          loading
-                        }
-                        className="w-full mt-5 py-3 rounded-lg text-sm font-bold font-mono transition-all"
-                        style={{
-                          background:
-                            'linear-gradient(135deg, #0066ff, #00e5ff)',
-
-                          color:
-                            '#000',
-                        }}
-                      >
-                        {loading
-                          ? 'AUTHORIZING...'
-                          : `AUTHORIZE: ${
-                              primary.title ||
-                              primary.action_type ||
-                              'RESPONSE'
-                            }`}
-                      </button>
-
+                      <div className="flex items-center gap-3 mt-5">
+                        <button
+                          type="button"
+                          onClick={() => approve(primary.id)}
+                          disabled={loading}
+                          className="flex-1 py-3 rounded-lg text-sm font-bold font-mono transition-all cursor-pointer text-slate-950"
+                          style={{
+                            background: 'linear-gradient(135deg, #0066ff, #00e5ff)',
+                          }}
+                        >
+                          {loading
+                            ? 'AUTHORIZING...'
+                            : `AUTHORIZE: ${primary.title || primary.action_type || 'RESPONSE'}`}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => reject(primary.id)}
+                          disabled={loading}
+                          className="px-5 py-3 rounded-lg text-sm font-bold font-mono transition-all border border-rose-500/40 bg-rose-950/20 text-rose-400 hover:bg-rose-900/30 cursor-pointer"
+                        >
+                          REJECT
+                        </button>
+                      </div>
                     ) : (
-
                       <div className="mt-5 p-3 rounded-lg border border-gray-700 bg-gray-900/30 text-center">
-
                         <p className="text-xs text-gray-400 font-mono">
                           RESPONSE AUTHORIZATION LOCKED
                         </p>
-
                         <p className="text-[11px] text-gray-600 font-mono mt-1">
                           Admin or Analyst approval is required.
                         </p>
-
                       </div>
-
                     )}
 
                   </div>
@@ -1955,6 +2024,30 @@ export default function Response() {
 
                   </div>
 
+                  {/* RECOVERY PROGRESS BAR */}
+                  <div className="mb-4 bg-slate-900/80 p-3.5 rounded-lg border border-cyan-500/20">
+                    <div className="flex items-center justify-between text-xs font-mono mb-2">
+                      <span className="text-slate-300 flex items-center gap-2">
+                        <RefreshCw size={12} className={selectedRecovery.status === 'IN_PROGRESS' ? 'animate-spin text-cyan-400' : 'text-slate-500'} />
+                        <span className="truncate max-w-md">{selectedRecovery.current_step || (selectedRecovery.status === 'COMPLETED' ? 'Recovery completed successfully.' : 'Recovery initializing...')}</span>
+                      </span>
+                      <span className="text-cyber-cyan font-bold">{selectedRecovery.progress_percent ?? (selectedRecovery.status === 'COMPLETED' ? 100 : 0)}%</span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          selectedRecovery.status === 'COMPLETED'
+                            ? 'bg-emerald-400'
+                            : selectedRecovery.status === 'FAILED'
+                              ? 'bg-rose-500'
+                              : 'bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400'
+                        }`}
+                        style={{
+                          width: `${selectedRecovery.progress_percent ?? (selectedRecovery.status === 'COMPLETED' ? 100 : 0)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
 
                   <div
                     ref={logRef}

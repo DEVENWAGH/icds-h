@@ -163,9 +163,17 @@ def create_qiga_recommendations(
 
     supported_types = {
         "DDoS",
+        "DoS",
         "Ransomware",
+        "Backdoor",
+        "Injection",
+        "Password Attack",
+        "Scanning",
+        "XSS",
+        "MITM",
         "Phishing",
         "Insider Threat",
+        "Anomaly (Zero-Day)",
     }
 
     if attack_log.attack_type not in supported_types:
@@ -317,6 +325,8 @@ def create_qiga_recommendations(
                 f"{recovery_time:.0f} min"
             ),
             is_approved=False,
+            status="PENDING",
+            rank=len(recommendation_records) + 1,
         )
 
         db.add(recommendation)
@@ -419,1023 +429,378 @@ def generate_shap_explanation(
 
 # =============================================================================
 # DATASET REPLAY SERVICE
+# ===========================================================================# =============================================================================
+# COMMON SECURITY EVENT PROCESSOR (Unified AI Pipeline)
 # =============================================================================
 
-async def dataset_replay_service():
-
+async def process_security_event(
+    raw_features: dict,
+    dataset_source: str,
+    input_source: str = "STREAM",
+    metadata: dict = None,
+    db: Session = None,
+):
+    """
+    The Single Core Security Pipeline for ICDS-H:
+    Raw Features -> MLP Inference -> Isolation Forest -> Decision Layer
+    -> DB Persist -> WebSocket Broadcast -> SHAP -> QIGA -> Threat Memory
+    """
     from cml.dataset_engine import engine
+    from cml.attack_memory import attack_memory
 
-    await asyncio.sleep(3)
-
-    # =========================================================================
-    # OPTIONAL UNSEEN PHISHING TEST EVENTS
-    #
-    # Existing unified_dataset.csv replay remains active.
-    #
-    # If the test CSV exists:
-    #
-    #     existing replay event
-    #              ↓
-    #     unseen phishing event
-    #              ↓
-    #     existing replay event
-    #              ↓
-    #     unseen phishing event
-    #
-    # If the test CSV does not exist:
-    #     existing replay continues normally.
-    # =========================================================================
-
-    unseen_events = []
+    close_db_when_done = False
+    if db is None:
+        db = SessionLocal()
+        close_db_when_done = True
 
     try:
+        # 1. MLP INFERENCE
+        mlp_result = engine.predict(raw_features, dataset_source)
+        prediction_label = mlp_result["prediction_label"]
+        confidence = float(mlp_result["confidence"])
+        risk_score = float(mlp_result["risk_score"])
+        severity = mlp_result["severity"]
+        model_version = mlp_result["model_version"]
+        mitre_id = mlp_result.get("mitre_technique_id")
+        mitre_name = mlp_result.get("mitre_technique_name")
 
-        unseen_events = (
-            engine.load_unseen_phishing_events(
-                filename="realtime_test/unseen_phishing.csv"
+        # 2. ANOMALY DETECTION (ISOLATION FOREST)
+        anomaly_result = anomaly_detector.detect_anomaly(
+            raw_features=raw_features,
+            dataset_source=dataset_source,
+        )
+
+        is_attack = prediction_label != "Normal"
+
+        # 3. DECISION LAYER (Fusion: Supervised MLP + Unsupervised IF)
+        if not is_attack and anomaly_result["is_anomaly"]:
+            prediction_label = "Anomaly (Zero-Day)"
+            severity = "HIGH"
+            anomaly_risk = anomaly_result.get("anomaly_risk", 75.0)
+            risk_score = max(risk_score, anomaly_risk)
+            mitre_id = None
+            mitre_name = "Unmapped / Unknown Behavior"
+            is_attack = True
+            description = (
+                f"[{dataset_source}] Isolation Forest detected anomalous pattern "
+                f"(score: {anomaly_result['anomaly_score']:.4f}). "
+                f"MLP classified as Normal — novel/unseen threat detected."
             )
-        )
+        else:
+            description = mlp_result["description"]
 
-        print(
-            "[UNSEEN TEST] Loaded "
-            f"{len(unseen_events)} events from "
-            "dataset/realtime_test/unseen_phishing.csv"
-        )
-
-    except FileNotFoundError:
-
-        print(
-            "[UNSEEN TEST] Test CSV not found. "
-            "Continuing with existing dataset replay only."
-        )
-
-    except Exception as error:
-
-        print(
-            "[UNSEEN TEST] Failed to load test CSV: "
-            f"{error}"
-        )
-
-    unseen_index = 0
-
-    # Start by allowing the first available event
-    # to come from the unseen CSV.
-    use_unseen_event = True
-
-    while True:
-
-        if not REPLAY_ACTIVE_FLAG.get("enabled", True):
-            await asyncio.sleep(1)
-            continue
-
-        db = None
-
+        # 4. DATABASE PERSISTENCE
+        dst_port = raw_features.get("dst_port")
+        port_value = None
         try:
+            if dst_port is not None and str(dst_port).replace(".", "").isdigit():
+                port_value = int(float(dst_port))
+        except Exception:
+            port_value = None
 
-            await asyncio.sleep(
-                REPLAY_INTERVAL_SECONDS
-            )
+        attack_log = models.AttackLog(
+            attack_type=prediction_label,
+            source_ip=str(raw_features.get("src_ip", raw_features.get("user", "10.0.0.1"))),
+            dest_ip=str(raw_features.get("dst_ip", raw_features.get("Domain", raw_features.get("pc", "10.0.0.2")))),
+            protocol=str(raw_features.get("proto", "TCP")),
+            port=port_value,
+            severity=severity,
+            status="DETECTED",
+            suspicious_score=confidence,
+            mitre_technique_id=mitre_id,
+            mitre_technique_name=mitre_name,
+            raw_features=raw_features,
+            description=description,
+            dataset_source=dataset_source,
+        )
+        db.add(attack_log)
+        db.flush()
+        attack_log_id = attack_log.id
 
-            db = SessionLocal()
+        # Risk Score Record
+        risk_status = "CRITICAL" if risk_score > 70 else "WARNING" if risk_score > 40 else "STABLE"
+        risk_record = models.RiskScore(
+            attack_log_id=attack_log_id,
+            score=risk_score,
+            confidence=confidence,
+            model_version=model_version,
+            prediction_label=prediction_label,
+            node_id=f"{input_source}_{dataset_source}",
+            status=risk_status,
+            features_used=raw_features,
+        )
+        db.add(risk_record)
 
-            # =================================================================
-            # 1. DATASET EVENT + MLP PREDICTION
-            # =================================================================
+        # Anomaly Detection Record
+        anomaly_record = models.AnomalyDetection(
+            attack_log_id=attack_log_id,
+            anomaly_score=anomaly_result["anomaly_score"],
+            is_anomaly=anomaly_result["is_anomaly"],
+            detector_type=anomaly_result["detector_type"],
+            dataset_source=dataset_source,
+            features_used=anomaly_result["features_used"],
+        )
+        db.add(anomaly_record)
 
-            if unseen_events and use_unseen_event:
-
-                event = unseen_events[
-                    unseen_index
-                ]
-
-                unseen_index = (
-                    unseen_index + 1
-                ) % len(unseen_events)
-
-                use_unseen_event = False
-
-                print(
-                    "[UNSEEN TEST] Processing "
-                    f"event {unseen_index or len(unseen_events)}"
-                )
-
-            else:
-
-                event = engine.next_event()
-
-                use_unseen_event = True
-
-            prediction_label = (
-                event["prediction_label"]
-            )
-
-            confidence = float(
-                event["confidence"]
-            )
-
-            risk_score = float(
-                event["risk_score"]
-            )
-
-            severity = event["severity"]
-
-            dataset = event["dataset"]
-
-            raw_features = (
-                event["raw_features"]
-            )
-
-            model_version = (
-                event["model_version"]
-            )
-
-            # =================================================================
-            # 2. CREATE CENTRAL ATTACK LOG
-            # =================================================================
-
-            dst_port = raw_features.get(
-                "dst_port"
-            )
-
-            try:
-
-                port_value = (
-                    int(
-                        float(
-                            dst_port
-                        )
-                    )
-                    if (
-                        dst_port is not None
-                        and str(dst_port)
-                        .replace(".", "")
-                        .isdigit()
-                    )
-                    else None
-                )
-
-            except Exception:
-
-                port_value = None
-
-            attack_log = models.AttackLog(
-                attack_type=prediction_label,
-
-                source_ip=str(
-                    raw_features.get(
-                        "src_ip",
-                        "N/A",
-                    )
-                ),
-
-                dest_ip=str(
-                    raw_features.get(
-                        "dst_ip",
-                        "N/A",
-                    )
-                ),
-
-                protocol=str(
-                    raw_features.get(
-                        "proto",
-                        "N/A",
-                    )
-                ),
-
-                port=port_value,
-
+        # Alert Record
+        if is_attack and severity in ("MEDIUM", "HIGH", "CRITICAL"):
+            alert = models.Alert(
+                alert_type=prediction_label.upper().replace(" ", "_"),
+                title=f"{prediction_label} Detected [{dataset_source}]",
+                message=f"[{dataset_source}] {description} | Confidence: {confidence:.1f}% | Risk: {risk_score:.0f}",
                 severity=severity,
+                attack_log_id=attack_log_id,
+            )
+            db.add(alert)
 
+        # Incident Record
+        if is_attack and severity in ("HIGH", "CRITICAL"):
+            incident = models.Incident(
+                attack_id=attack_log_id,
                 status="DETECTED",
-
-                suspicious_score=confidence,
-
-                mitre_technique_id=(
-                    event.get(
-                        "mitre_technique_id"
-                    )
-                ),
-
-                mitre_technique_name=(
-                    event.get(
-                        "mitre_technique_name"
-                    )
-                ),
-
-                raw_features=raw_features,
-
-                description=event[
-                    "description"
-                ],
-
-                dataset_source=dataset,
+                mitre_technique_id=mitre_id,
+                mitre_technique_name=mitre_name,
             )
+            db.add(incident)
 
-            db.add(attack_log)
-            db.flush()
+        db.commit()
 
-            attack_log_id = attack_log.id
+        # 5. WEBSOCKET BROADCAST: THREAT EVENT
+        threat_payload = {
+            "attack_log_id": attack_log_id,
+            "attack_type": prediction_label,
+            "severity": severity,
+            "confidence": round(confidence, 2),
+            "risk_score": round(risk_score, 1),
+            "dataset": dataset_source,
+            "mitre_id": mitre_id,
+            "mitre_name": mitre_name,
+            "model_version": model_version,
+            "description": description,
+            "timestamp": datetime.utcnow().isoformat(),
+            "raw_features": raw_features,
+            "stage": f"{input_source}_DETECTED",
+            "mlp_prediction": {
+                "label": prediction_label,
+                "confidence": round(confidence, 2),
+                "risk_score": round(risk_score, 1),
+                "model_version": model_version,
+                "dataset": dataset_source,
+            },
+            "anomaly_detection": anomaly_result,
+        }
+        await manager.broadcast({"type": "threat", "data": threat_payload})
 
-            # =================================================================
-            # 3. CREATE MLP RISK SCORE
-            # =================================================================
+        if anomaly_result["is_anomaly"]:
+            await manager.broadcast({
+                "type": "anomaly_detection",
+                "data": {
+                    "attack_log_id": attack_log_id,
+                    "anomaly_score": anomaly_result["anomaly_score"],
+                    "is_anomaly": True,
+                    "detector_type": anomaly_result["detector_type"],
+                    "dataset": dataset_source,
+                    "attack_type": prediction_label,
+                    "severity": severity,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            })
 
-            risk_status = (
-                "CRITICAL"
-                if risk_score > 70
-                else "WARNING"
-                if risk_score > 40
-                else "STABLE"
-            )
+        # 6. SHAP EXPLANATION
+        shap_result = generate_shap_explanation(
+            attack_log=attack_log,
+            prediction_label=prediction_label,
+        )
 
-            risk_record = models.RiskScore(
-                attack_log_id=attack_log_id,
+        if shap_result:
+            await manager.broadcast({
+                "type": "shap_explanation",
+                "data": {
+                    "attack_log_id": attack_log_id,
+                    "attack_type": prediction_label,
+                    "dataset": dataset_source,
+                    "prediction_label": shap_result.get("prediction_label", prediction_label),
+                    "mlp_prediction_label": prediction_label,
+                    "method": "SHAP",
+                    "status": "COMPLETED",
+                    "top_features": shap_result.get("top_features", []),
+                    "all_features": shap_result.get("all_features", []),
+                    "explanation_text": shap_result.get("explanation_text"),
+                    "base_value": shap_result.get("base_value"),
+                },
+            })
 
-                score=risk_score,
-
-                confidence=confidence,
-
-                model_version=model_version,
-
-                prediction_label=prediction_label,
-
-                node_id=(
-                    f"DATASET_{dataset}"
-                ),
-
-                status=risk_status,
-
-                features_used=raw_features,
-            )
-
-            db.add(risk_record)
-
-            # =================================================================
-            # 4. ATTACK DECISION
-            # =================================================================
-
-            is_attack = (
-                prediction_label
-                != "Normal"
-            )
-
-            # =================================================================
-            # 5. ALERT
-            # =================================================================
-
-            if (
-                is_attack
-                and severity
-                in (
-                    "MEDIUM",
-                    "HIGH",
-                    "CRITICAL",
+        # 7. QIGA & RECOMMENDATIONS
+        qiga_output = {"qiga_result": None, "recommendations": []}
+        if is_attack:
+            try:
+                qiga_output = create_qiga_recommendations(
+                    db=db,
+                    attack_log=attack_log,
+                    risk_score_record=risk_record,
                 )
-            ):
+                db.commit()
+            except Exception as qiga_error:
+                db.rollback()
+                print(f"[QIGA ERROR] AttackLog {attack_log_id}: {qiga_error}")
 
-                alert = models.Alert(
-                    alert_type=(
-                        prediction_label
-                        .upper()
-                        .replace(
-                            " ",
-                            "_",
-                        )
-                    ),
-
-                    title=(
-                        f"{prediction_label} "
-                        f"Detected "
-                        f"[{dataset}]"
-                    ),
-
-                    message=(
-                        f"[{dataset}] "
-                        f"{event['description']} "
-                        f"| Confidence: "
-                        f"{confidence:.1f}% "
-                        f"| Risk: "
-                        f"{risk_score:.0f}"
-                    ),
-
-                    severity=severity,
-
-                    attack_log_id=(
-                        attack_log_id
-                    ),
-                )
-
-                db.add(alert)
-
-            # =================================================================
-            # 6. INCIDENT
-            # =================================================================
-
-            if (
-                is_attack
-                and severity
-                in (
-                    "HIGH",
-                    "CRITICAL",
-                )
-            ):
-
-                incident = models.Incident(
-                    attack_id=attack_log_id,
-
-                    status="DETECTED",
-
-                    mitre_technique_id=(
-                        event.get(
-                            "mitre_technique_id"
-                        )
-                    ),
-
-                    mitre_technique_name=(
-                        event.get(
-                            "mitre_technique_name"
-                        )
-                    ),
-                )
-
-                db.add(incident)
-
-            # =================================================================
-            # 6b. ANOMALY DETECTION (ISOLATION FOREST)
-            # =================================================================
-
-            anomaly_result = anomaly_detector.detect_anomaly(
-                raw_features=raw_features,
-                dataset_source=dataset,
-            )
-
-            anomaly_record = models.AnomalyDetection(
-                attack_log_id=attack_log_id,
-                anomaly_score=anomaly_result["anomaly_score"],
-                is_anomaly=anomaly_result["is_anomaly"],
-                detector_type=anomaly_result["detector_type"],
-                dataset_source=dataset,
-                features_used=anomaly_result["features_used"],
-            )
-            db.add(anomaly_record)
-
-            # If MLP says Normal but Isolation Forest flags anomaly,
-            # override to ANOMALY_DETECTED with elevated severity
-            if not is_attack and anomaly_result["is_anomaly"]:
-                attack_log.attack_type = "Anomaly (Zero-Day)"
-                attack_log.severity = "HIGH"
-                attack_log.status = "DETECTED"
-                attack_log.description = (
-                    f"Isolation Forest detected anomalous behavior "
-                    f"(score: {anomaly_result['anomaly_score']:.4f}) "
-                    f"that the MLP classifier deemed Normal. "
-                    f"Possible zero-day or novel attack pattern."
-                )
-                prediction_label = "Anomaly (Zero-Day)"
-                severity = "HIGH"
-                is_attack = True
-
-                # Create alert for anomaly
-                alert = models.Alert(
-                    alert_type="ANOMALY_ZERO_DAY",
-                    title=f"Anomaly Detected [{dataset}]",
-                    message=(
-                        f"Isolation Forest flagged anomalous traffic "
-                        f"(score: {anomaly_result['anomaly_score']:.4f}) "
-                        f"from {raw_features.get('src_ip', 'N/A')} → "
-                        f"{raw_features.get('dst_ip', 'N/A')}. "
-                        f"MLP classified as Normal — possible zero-day."
-                    ),
-                    severity="HIGH",
+        # 8. THREAT MEMORY
+        if is_attack:
+            recommendations = qiga_output.get("recommendations", [])
+            qiga_action_ids = [r.action_type for r in recommendations if r.action_type]
+            try:
+                memory_entry = models.AttackMemoryEntry(
                     attack_log_id=attack_log_id,
+                    attack_type=prediction_label,
+                    severity=severity,
+                    risk_score=risk_score,
+                    feature_fingerprint=raw_features,
+                    raw_features=raw_features,
+                    recommended_actions=qiga_action_ids,
+                    outcome="DETECTED",
+                    success=False,
                 )
-                db.add(alert)
-
-                # Create incident for anomaly
-                incident = models.Incident(
+                db.add(memory_entry)
+                attack_memory.add(
                     attack_id=attack_log_id,
-                    status="DETECTED",
-                    mitre_technique_id="T0000",
-                    mitre_technique_name="Novel/Unseen Pattern (IF Anomaly)",
+                    attack_type=prediction_label,
+                    severity=severity,
+                    risk_score=risk_score,
+                    features=raw_features,
+                    recommended_actions=qiga_action_ids,
+                    dataset_source=dataset_source,
                 )
-                db.add(incident)
+                db.commit()
+            except Exception as mem_err:
+                db.rollback()
+                print(f"[MEMORY ERROR] AttackLog {attack_log_id}: {mem_err}")
 
-            # =================================================================
-            # 7. COMMIT MLP + ANOMALY DETECTION FIRST
-            # =================================================================
+        # 9. BROADCAST QIGA RECOMMENDATION
+        if is_attack and qiga_output.get("qiga_result"):
+            qiga_rec = qiga_output["qiga_result"]
+            recommendations = qiga_output["recommendations"]
+            await manager.broadcast({
+                "type": "qiga_recommendation",
+                "data": {
+                    "attack_log_id": attack_log_id,
+                    "attack_type": prediction_label,
+                    "dataset": dataset_source,
+                    "risk_score": risk_score,
+                    "qiga_id": qiga_rec.id,
+                    "objective_score": qiga_rec.objective_score,
+                    "status": "PENDING_APPROVAL",
+                    "approval_required": True,
+                    "selected_actions": [
+                        {
+                            "id": r.action_type,
+                            "title": r.title,
+                            "confidence": round((r.confidence_score or 0) * 100, 2),
+                            "is_approved": bool(r.is_approved),
+                            "status": r.status,
+                            "rank": r.rank,
+                            "rec_id": r.id,
+                        }
+                        for r in recommendations
+                    ],
+                },
+            })
 
+        # 10. AUTO-RESPONSE CHECK (Only when explicitly enabled)
+        severity_order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        min_sev_idx = severity_order.index(AUTO_RESPONSE_MIN_SEVERITY) if AUTO_RESPONSE_MIN_SEVERITY in severity_order else 2
+        current_sev_idx = severity_order.index(severity) if severity in severity_order else 0
+        should_auto_respond = (
+            AUTO_RESPONSE_ENABLED
+            and current_sev_idx >= min_sev_idx
+            and qiga_output.get("recommendations")
+        )
+
+        if is_attack and should_auto_respond:
+            recommendations = qiga_output["recommendations"]
+            top_rec = max(recommendations, key=lambda r: r.confidence_score or 0)
+            top_rec.is_approved = True
+            top_rec.status = "APPROVED"
+            top_rec.approved_at = datetime.utcnow()
+
+            target_node = str(raw_features.get("dst_ip", raw_features.get("Domain", "TARGET_NODE")))[:100]
+            recovery = models.RecoveryAction(
+                recommendation_id=top_rec.id,
+                action_name=top_rec.title,
+                action_type=top_rec.action_type,
+                target_node=target_node,
+                status="COMPLETED",
+                progress_percent=100,
+                current_step="Recovery completed automatically.",
+                execution_log=f"[AUTO-RESPONSE] {top_rec.action_type} executed.\nStatus: COMPLETED",
+                started_at=datetime.utcnow(),
+                completed_at=datetime.utcnow(),
+            )
+            db.add(recovery)
+            attack_log.status = "RESOLVED"
+            attack_log.resolved_at = datetime.utcnow()
             db.commit()
 
-            # =================================================================
-            # 8. BROADCAST MLP DETECTION FIRST
-            # =================================================================
+        return {
+            "success": True,
+            "attack_log_id": attack_log_id,
+            "attack_type": prediction_label,
+            "severity": severity,
+            "confidence": confidence,
+            "risk_score": risk_score,
+            "mitre": f"{mitre_id} - {mitre_name}" if mitre_id else mitre_name,
+            "description": description,
+        }
 
-            await manager.broadcast(
-                {
-                    "type": "threat",
+    except Exception as error:
+        print(f"[PROCESS_SECURITY_EVENT ERROR] {error}")
+        if db:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        return {"success": False, "error": str(error)}
 
-                    "data": {
+    finally:
+        if close_db_when_done and db:
+            db.close()
 
-                        "attack_log_id":
-                            attack_log_id,
 
-                        "attack_type":
-                            prediction_label,
+# =============================================================================
+# CONTINUOUS SIMULATED MONITORING SERVICE
+# =============================================================================
 
-                        "severity":
-                            severity,
+async def continuous_monitoring_service():
+    """
+    Continuous simulated real-time event stream.
+    Runs persistently in backend; only controlled by REPLAY_ACTIVE_FLAG.
+    Generates synthetic raw features and feeds the real ML pipeline.
+    """
+    from cml.event_simulator import simulator
 
-                        "confidence":
-                            round(
-                                confidence,
-                                2,
-                            ),
+    await asyncio.sleep(2)
+    print("[ICDS-H] Continuous monitoring service initialized (Awaiting Start or Active toggle)")
 
-                        "risk_score":
-                            round(
-                                risk_score,
-                                1,
-                            ),
+    while True:
+        try:
+            await asyncio.sleep(REPLAY_INTERVAL_SECONDS)
 
-                       "dataset": (
-                                    None
-                                    if event.get("input_source") == "UNSEEN_TEST"
-                                   else dataset
-                                  ),
+            if not REPLAY_ACTIVE_FLAG.get("enabled", False):
+                continue
 
-                        "mitre_id":
-                            event.get(
-                                "mitre_technique_id"
-                            ),
+            event_data = simulator.generate_random_event()
+            raw_features = event_data["raw_features"]
+            dataset_source = event_data["dataset_source"]
 
-                        "mitre_name":
-                            event.get(
-                                "mitre_technique_name"
-                            ),
-
-                        "model_version":
-                            model_version,
-
-                        "description":
-                            event[
-                                "description"
-                            ],
-
-                        "timestamp":
-                            datetime.utcnow()
-                            .isoformat(),
-
-                        "raw_features":
-                            raw_features,
-
-                        "stage":
-                            "MLP_DETECTED",
-
-                        "mlp_prediction":
-                            {
-                                "label":
-                                    prediction_label,
-
-                                "confidence":
-                                    round(
-                                        confidence,
-                                        2,
-                                    ),
-
-                                "risk_score":
-                                    round(
-                                        risk_score,
-                                        1,
-                                    ),
-
-                                "model_version":
-                                    model_version,
-
-                                "dataset":
-                                    dataset,
-                            },
-
-                        "anomaly_detection":
-                            anomaly_result,
-                    },
-                }
+            await process_security_event(
+                raw_features=raw_features,
+                dataset_source=dataset_source,
+                input_source="SIMULATED_STREAM",
+                metadata=event_data.get("metadata"),
             )
-
-            # =================================================================
-            # 8b. BROADCAST ANOMALY DETECTION RESULT
-            # =================================================================
-
-            if anomaly_result["is_anomaly"]:
-                await manager.broadcast(
-                    {
-                        "type": "anomaly_detection",
-                        "data": {
-                            "attack_log_id": attack_log_id,
-                            "anomaly_score": anomaly_result["anomaly_score"],
-                            "is_anomaly": True,
-                            "detector_type": anomaly_result["detector_type"],
-                            "dataset": dataset,
-                            "attack_type": prediction_label,
-                            "severity": severity,
-                            "timestamp": datetime.utcnow().isoformat(),
-                        },
-                    }
-                )
-
-            # =================================================================
-            # 9. SHAP EXPLANATION
-            # =================================================================
-
-            shap_result = (
-                generate_shap_explanation(
-                    attack_log=attack_log,
-                    prediction_label=prediction_label,
-                )
-            )
-
-            # =================================================================
-            # 10. BROADCAST SHAP
-            # =================================================================
-
-            if shap_result:
-
-                await manager.broadcast(
-                    {
-                        "type":
-                            "shap_explanation",
-
-                        "data": {
-
-                            "attack_log_id":
-                                attack_log_id,
-
-                            "attack_type":
-                                prediction_label,
-
-                            "dataset":
-                                dataset,
-
-                            "prediction_label":
-                                shap_result.get(
-                                    "prediction_label",
-                                    prediction_label,
-                                ),
-
-                            "mlp_prediction_label":
-                                prediction_label,
-
-                            "method":
-                                "SHAP",
-
-                            "status":
-                                "COMPLETED",
-
-                            "top_features":
-                                shap_result.get(
-                                    "top_features",
-                                    [],
-                                ),
-
-                            "all_features":
-                                shap_result.get(
-                                    "all_features",
-                                    [],
-                                ),
-
-                            "explanation_text":
-                                shap_result.get(
-                                    "explanation_text"
-                                ),
-
-                            "base_value":
-                                shap_result.get(
-                                    "base_value"
-                                ),
-                        },
-                    }
-                )
-
-            else:
-
-                await manager.broadcast(
-                    {
-                        "type":
-                            "shap_explanation",
-
-                        "data": {
-
-                            "attack_log_id":
-                                attack_log_id,
-
-                            "attack_type":
-                                prediction_label,
-
-                            "dataset":
-                                dataset,
-
-                            "method":
-                                "SHAP",
-
-                            "status":
-                                "FAILED",
-
-                            "top_features":
-                                [],
-
-                            "all_features":
-                                [],
-                        },
-                    }
-                )
-
-            # =================================================================
-            # 11. QIGA → RECOMMENDATIONS
-            # =================================================================
-
-            qiga_output = {
-                "qiga_result": None,
-                "recommendations": [],
-            }
-
-            if is_attack:
-
-                try:
-
-                    qiga_output = (
-                        create_qiga_recommendations(
-                            db=db,
-                            attack_log=attack_log,
-                            risk_score_record=risk_record,
-                        )
-                    )
-
-                    db.commit()
-
-                except Exception as qiga_error:
-
-                    db.rollback()
-
-                    print(
-                        "[QIGA ERROR] "
-                        f"AttackLog {attack_log_id}: "
-                        f"{qiga_error}"
-                    )
-
-                    qiga_output = {
-                        "qiga_result": None,
-                        "recommendations": [],
-                    }
-
-            # =================================================================
-            # 12. ATTACK MEMORY
-            # =================================================================
-
-            if is_attack:
-
-                recommendations = (
-                    qiga_output[
-                        "recommendations"
-                    ]
-                )
-
-                qiga_action_ids = [
-                    recommendation.action_type
-                    for recommendation
-                    in recommendations
-                ]
-
-                try:
-
-                    memory_entry = (
-                        models.AttackMemoryEntry(
-                            attack_log_id=(
-                                attack_log_id
-                            ),
-
-                            attack_type=(
-                                prediction_label
-                            ),
-
-                            severity=severity,
-
-                            risk_score=risk_score,
-
-                            feature_fingerprint=(
-                                raw_features
-                            ),
-
-                            raw_features=(
-                                raw_features
-                            ),
-
-                            recommended_actions=(
-                                qiga_action_ids
-                            ),
-
-                            outcome="DETECTED",
-
-                            success=False,
-                        )
-                    )
-
-                    db.add(memory_entry)
-
-                    from cml.attack_memory import (
-                        attack_memory,
-                    )
-
-                    attack_memory.add(
-                        attack_id=(
-                            attack_log_id
-                        ),
-
-                        attack_type=(
-                            prediction_label
-                        ),
-
-                        severity=severity,
-
-                        risk_score=risk_score,
-
-                        features=(
-                            raw_features
-                        ),
-
-                        recommended_actions=(
-                            qiga_action_ids
-                        ),
-                    )
-
-                    db.commit()
-
-                except Exception as memory_error:
-
-                    db.rollback()
-
-                    print(
-                        "[MEMORY ERROR] "
-                        f"AttackLog {attack_log_id}: "
-                        f"{memory_error}"
-                    )
-
-            # =================================================================
-            # 13. BROADCAST QIGA / RECOMMENDATIONS
-            # =================================================================
-
-            if is_attack:
-
-                qiga_record = (
-                    qiga_output[
-                        "qiga_result"
-                    ]
-                )
-
-                recommendations = (
-                    qiga_output[
-                        "recommendations"
-                    ]
-                )
-
-                # Determine if auto-response should execute
-                severity_order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-                min_sev_idx = severity_order.index(AUTO_RESPONSE_MIN_SEVERITY) if AUTO_RESPONSE_MIN_SEVERITY in severity_order else 2
-                current_sev_idx = severity_order.index(severity) if severity in severity_order else 0
-                should_auto_respond = (
-                    AUTO_RESPONSE_ENABLED
-                    and current_sev_idx >= min_sev_idx
-                    and recommendations
-                )
-
-                if qiga_record:
-
-                    # Determine status based on auto-response
-                    response_status = "AUTO_APPROVED" if should_auto_respond else "PENDING_APPROVAL"
-
-                    await manager.broadcast(
-                        {
-                            "type":
-                                "qiga_recommendation",
-
-                            "data": {
-
-                                "attack_log_id":
-                                    attack_log_id,
-
-                                "attack_type":
-                                    prediction_label,
-
-                                "dataset":
-                                    dataset,
-
-                                "risk_score":
-                                    risk_score,
-
-                                "qiga_id":
-                                    qiga_record.id,
-
-                                "objective_score":
-                                    qiga_record.objective_score,
-
-                                "status":
-                                    response_status,
-
-                                "approval_required":
-                                    not should_auto_respond,
-
-                                "selected_actions": [
-
-                                    {
-                                        "id":
-                                            recommendation.action_type,
-
-                                        "title":
-                                            recommendation.title,
-
-                                        "confidence":
-                                            round(
-                                                (
-                                                    recommendation
-                                                    .confidence_score
-                                                    or 0
-                                                )
-                                                * 100,
-                                                2,
-                                            ),
-
-                                        "is_approved":
-                                            bool(
-                                                recommendation
-                                                .is_approved
-                                            ),
-                                    }
-
-                                    for recommendation
-                                    in recommendations
-                                ],
-                            },
-                        }
-                    )
-
-            # =================================================================
-            # 14. AUTO-RESPONSE EXECUTION
-            # =================================================================
-
-            if is_attack and should_auto_respond and recommendations:
-
-                try:
-                    # Pick the top recommendation (highest confidence)
-                    top_rec = max(
-                        recommendations,
-                        key=lambda r: r.confidence_score or 0,
-                    )
-
-                    valid_auto_actions = {
-                        "ISOLATE", "BLOCK", "RESTORE", "RESET", "PATCH",
-                    }
-
-                    if top_rec.action_type in valid_auto_actions:
-
-                        # Auto-approve
-                        top_rec.is_approved = True
-                        top_rec.approved_at = datetime.utcnow()
-
-                        # Create recovery action
-                        target_node = (
-                            attack_log.dest_ip or "UNKNOWN"
-                        )
-
-                        recovery = models.RecoveryAction(
-                            recommendation_id=top_rec.id,
-                            action_name=top_rec.title,
-                            action_type=top_rec.action_type,
-                            target_node=str(target_node)[:100],
-                            status="IN_PROGRESS",
-                            started_at=datetime.utcnow(),
-                        )
-                        db.add(recovery)
-
-                        # Update attack log status
-                        attack_log.status = "CONTAINMENT"
-
-                        # Update incident
-                        auto_incident = (
-                            db.query(models.Incident)
-                            .filter(
-                                models.Incident.attack_id
-                                == attack_log_id
-                            )
-                            .first()
-                        )
-                        if auto_incident:
-                            auto_incident.status = "CONTAINMENT"
-
-                        db.commit()
-                        db.refresh(recovery)
-
-                        # Simulate recovery completion
-                        recovery.status = "COMPLETED"
-                        recovery.completed_at = datetime.utcnow()
-                        recovery.execution_log = (
-                            f"[AUTO-RESPONSE] {top_rec.action_type} executed automatically.\n"
-                            f"Target: {target_node}\n"
-                            f"Attack: {prediction_label} (Severity: {severity})\n"
-                            f"Confidence: {(top_rec.confidence_score or 0) * 100:.1f}%\n"
-                            f"Status: COMPLETED at {datetime.utcnow().isoformat()}"
-                        )
-
-                        attack_log.status = "RESOLVED"
-                        attack_log.resolved_at = datetime.utcnow()
-
-                        if auto_incident:
-                            auto_incident.status = "RESOLVED"
-                            auto_incident.closed_at = datetime.utcnow()
-
-                        # Update memory entry
-                        memory_entry_update = (
-                            db.query(models.AttackMemoryEntry)
-                            .filter(
-                                models.AttackMemoryEntry.attack_log_id
-                                == attack_log_id
-                            )
-                            .first()
-                        )
-                        if memory_entry_update:
-                            memory_entry_update.outcome = "RESOLVED"
-                            memory_entry_update.success = True
-
-                        db.commit()
-
-                        # Broadcast auto-response event
-                        await manager.broadcast(
-                            {
-                                "type": "auto_response",
-                                "data": {
-                                    "attack_log_id": attack_log_id,
-                                    "attack_type": prediction_label,
-                                    "severity": severity,
-                                    "action_type": top_rec.action_type,
-                                    "action_name": top_rec.title,
-                                    "recovery_id": recovery.id,
-                                    "status": "RESOLVED",
-                                    "confidence": round(
-                                        (top_rec.confidence_score or 0) * 100, 2
-                                    ),
-                                    "target_node": target_node,
-                                    "timestamp": datetime.utcnow().isoformat(),
-                                    "message": (
-                                        f"Auto-response: {top_rec.action_type} executed "
-                                        f"for {prediction_label} attack. "
-                                        f"Target: {target_node}. Status: RESOLVED."
-                                    ),
-                                },
-                            }
-                        )
-
-                        # Broadcast lifecycle updates
-                        await manager.broadcast(
-                            {
-                                "type": "lifecycle_update",
-                                "data": {
-                                    "attack_log_id": attack_log_id,
-                                    "status": "RESOLVED",
-                                },
-                            }
-                        )
-
-                        print(
-                            f"[AUTO-RESPONSE] {top_rec.action_type} executed "
-                            f"for AttackLog {attack_log_id} "
-                            f"({prediction_label}/{severity})"
-                        )
-
-                except Exception as auto_error:
-
-                    db.rollback()
-                    print(
-                        f"[AUTO-RESPONSE ERROR] "
-                        f"AttackLog {attack_log_id}: {auto_error}"
-                    )
 
         except Exception as error:
-
-            print(
-                "[REPLAY_SERVICE ERROR] "
-                f"{error}"
-            )
-
-            if db is not None:
-
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-
+            print(f"[MONITORING_SERVICE ERROR] {error}")
             await asyncio.sleep(5)
-
-        finally:
-
-            if db is not None:
-                db.close()
 
 
 # =============================================================================
@@ -1987,23 +1352,7 @@ async def startup():
 
     seed_initial_data()
 
-    # Train anomaly detector on existing dataset
-    dataset_csv = os.path.join(
-        os.path.dirname(__file__),
-        "dataset",
-        "unified_dataset.csv",
-    )
-    if os.path.exists(dataset_csv):
-        import threading
-        train_thread = threading.Thread(
-            target=anomaly_detector.train_from_csv,
-            args=(dataset_csv,),
-            daemon=True,
-        )
-        train_thread.start()
-        print("[ICDS-H] Anomaly detector training started in background.")
-    else:
-        print("[ICDS-H] No unified_dataset.csv found. Anomaly detector not trained.")
+    print("[ICDS-H] Anomaly detectors active (pre-trained Isolation Forest models).")
 
     asyncio.create_task(
         broadcast_metrics_loop()
@@ -2013,43 +1362,15 @@ async def startup():
         lifecycle_manager_service()
     )
 
-    if DATASET_REPLAY_MODE:
-
-        print(
-            "[ICDS-H] DATASET_REPLAY_MODE=True "
-            "- Starting automatic "
-            "MLP -> Anomaly -> SHAP -> QIGA -> Auto-Response pipeline..."
-        )
-
-        asyncio.create_task(
-            dataset_replay_service()
-        )
-
-    else:
-
-        print(
-            "[ICDS-H] DATASET_REPLAY_MODE=False "
-            "- Awaiting external events."
-        )
+    # Start background continuous monitoring task (persists across page navigations)
+    asyncio.create_task(
+        continuous_monitoring_service()
+    )
+    print("[ICDS-H] Continuous simulated monitoring service task started.")
 
     if LIVE_CAPTURE_ENABLED:
-
-        print(
-            "[ICDS-H] LIVE_CAPTURE_ENABLED=True "
-            "- Starting live packet capture service..."
-        )
-
-        asyncio.create_task(
-            live_capture_service()
-        )
-
-    else:
-
-        print(
-            "[ICDS-H] LIVE_CAPTURE_ENABLED=False "
-            "- Live capture disabled. "
-            "Set LIVE_CAPTURE_ENABLED=True in .env to enable."
-        )
+        print("[ICDS-H] LIVE_CAPTURE_ENABLED=True - Starting live packet capture...")
+        asyncio.create_task(live_capture_service())
 
 
 # =============================================================================

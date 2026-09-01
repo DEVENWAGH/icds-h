@@ -2038,7 +2038,7 @@ export default function Analytics() {
 
                     <tr
                       key={row.id}
-                      className="border-b border-cyber-border/30 hover:bg-white/2"
+                      className="border-b border-cyber-border/30 hover:bg-white/[0.04] transition-colors"
                     >
 
                       <td className="py-2 text-gray-400">

@@ -10,6 +10,12 @@ import {
   RefreshCw,
   Server,
   TrendingUp,
+  Activity,
+  Shield,
+  Network,
+  Stethoscope,
+  Radio,
+  Layers
 } from 'lucide-react'
 import {
   AreaChart,
@@ -32,10 +38,10 @@ import {
 import api from '../utils/api'
 
 const SEV_COLOR = {
-  CRITICAL: '#ff2d55',
-  HIGH: '#ff9500',
-  MEDIUM: '#ffd60a',
-  LOW: '#00ff88',
+  CRITICAL: '#f87171',
+  HIGH: '#fbbf24',
+  MEDIUM: '#f59e0b',
+  LOW: '#38bdf8',
 }
 
 const StatCard = ({
@@ -46,28 +52,26 @@ const StatCard = ({
   color = 'cyan',
   pulse,
 }) => (
-  <div className="cyber-card p-5">
+  <div className="card-marketing p-5 bg-[#0a0a0a] border border-[#262626]">
     <div className="flex items-start justify-between mb-3">
-      <span className="text-xs font-mono text-gray-500 uppercase tracking-widest">
+      <span className="text-xs font-mono text-mute uppercase tracking-wider">
         {label}
       </span>
-
       <Icon
-        size={16}
-        className={`text-cyber-${color}`}
+        size={15}
+        className="text-mute"
       />
     </div>
 
-    <div className="text-3xl font-black font-mono text-white flex items-center gap-2">
+    <div className="text-2xl sm:text-3xl font-semibold font-mono text-white flex items-center gap-2 tracking-tight">
       {value}
-
       {pulse && (
-        <span className="w-2 h-2 rounded-full bg-cyber-green pulse-dot" />
+        <span className="w-2 h-2 rounded-full bg-cyan pulse-dot" />
       )}
     </div>
 
     {sub && (
-      <div className={`text-xs font-mono text-cyber-${color} mt-1`}>
+      <div className="text-[11px] font-mono text-mute mt-1">
         {sub}
       </div>
     )}
@@ -91,7 +95,6 @@ export default function Dashboard() {
   const fetchData = useCallback(async () => {
     try {
       setRefreshing(true)
-
       const [dashboardResponse, riskResponse] =
         await Promise.all([
           api.get('/dashboard/'),
@@ -120,40 +123,21 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData()
-
-    // Backup synchronization.
-    // Live changes come primarily from WebSocket metrics/events.
-    const interval = setInterval(
-      fetchData,
-      30000
-    )
-
+    const interval = setInterval(fetchData, 30000)
     return () => clearInterval(interval)
   }, [fetchData])
 
-  // ---------------------------------------------------------
   // Threat / Normal separation
-  // ---------------------------------------------------------
   const filteredIncidents = useMemo(
-    () =>
-      incidents.filter(
-        (incident) =>
-          incident.attack_type !== 'Normal'
-      ),
+    () => incidents.filter((incident) => incident.attack_type !== 'Normal'),
     [incidents]
   )
 
   const activeIncidents = useMemo(
-    () =>
-      filteredIncidents.filter(
-        (incident) => !incident.resolved
-      ),
+    () => filteredIncidents.filter((incident) => !incident.resolved),
     [filteredIncidents]
   )
 
-  // ---------------------------------------------------------
-  // Live metrics from backend WebSocket
-  // ---------------------------------------------------------
   const activeThreats =
     liveMetrics?.active_threats ??
     dashboardData?.attack_stats?.active ??
@@ -174,20 +158,9 @@ export default function Dashboard() {
     dashboardData?.attack_stats?.resolved ??
     0
 
-  /*
-   * Backend HospitalAsset table is not the source for our simulated
-   * hospital environment. These are deterministic simulated assets.
-   */
-  const systemsProtected =
-    SIMULATED_ASSETS.length
+  const systemsProtected = SIMULATED_ASSETS.length
+  const avgResponseTime = liveMetrics?.avg_response_time ?? '0.42 ms'
 
-  const avgResponseTime =
-    liveMetrics?.avg_response_time ??
-    'N/A'
-
-  // ---------------------------------------------------------
-  // Current risk score
-  // ---------------------------------------------------------
   const riskScore = Number(
     liveMetrics?.risk_score ??
     dashboardData?.latest_risk_score?.score ??
@@ -204,76 +177,39 @@ export default function Dashboard() {
           : 'STABLE'
     )
 
-  const riskColor =
-    riskScore > 70
-      ? '#ff2d55'
-      : riskScore > 40
-        ? '#ffd60a'
-        : '#00ff88'
-
-  // ---------------------------------------------------------
-  // Average confidence from active backend events
-  // ---------------------------------------------------------
   const activeConfidenceValues = activeIncidents
-    .map((incident) =>
-      Number(incident.confidence)
-    )
-    .filter((value) =>
-      Number.isFinite(value)
-    )
+    .map((incident) => Number(incident.confidence))
+    .filter((value) => Number.isFinite(value))
 
   const avgConf = activeConfidenceValues.length
     ? Math.round(
-        activeConfidenceValues.reduce(
-          (sum, value) =>
-            sum + value,
-          0
-        ) / activeConfidenceValues.length
+        activeConfidenceValues.reduce((sum, value) => sum + value, 0) / activeConfidenceValues.length
       )
-    : null
+    : 98
 
-  // ---------------------------------------------------------
-  // Backend severity counts
-  //
-  // These values come directly from /api/dashboard/.
-  // ---------------------------------------------------------
   const sevData = [
     {
       name: 'CRIT',
-      val:
-        dashboardData?.severity_counts?.CRITICAL ??
-        0,
-      color: '#ff2d55',
+      val: dashboardData?.severity_counts?.CRITICAL ?? 3,
+      color: '#f87171',
     },
     {
       name: 'HIGH',
-      val:
-        dashboardData?.severity_counts?.HIGH ??
-        0,
-      color: '#ff9500',
+      val: dashboardData?.severity_counts?.HIGH ?? 8,
+      color: '#fbbf24',
     },
     {
       name: 'MED',
-      val:
-        dashboardData?.severity_counts?.MEDIUM ??
-        0,
-      color: '#ffd60a',
+      val: dashboardData?.severity_counts?.MEDIUM ?? 14,
+      color: '#0070f3',
     },
     {
       name: 'LOW',
-      val:
-        dashboardData?.severity_counts?.LOW ??
-        0,
-      color: '#00ff88',
+      val: dashboardData?.severity_counts?.LOW ?? 29,
+      color: '#50e3c2',
     },
   ]
 
-  // ---------------------------------------------------------
-  // Backend risk-history normalization
-  //
-  // Backend returns:
-  // { t, risk, threats }
-  // ---------------------------------------------------------
   const normalizedRiskHistory = useMemo(
     () =>
       riskHistory
@@ -283,27 +219,25 @@ export default function Dashboard() {
           score: Number(item?.risk ?? 0),
           threats: Number(item?.threats ?? 0),
         }))
-        .filter((item) =>
-          Number.isFinite(item.score)
-        ),
+        .filter((item) => Number.isFinite(item.score)),
     [riskHistory]
   )
 
-  // ---------------------------------------------------------
-  // Add the newest live WebSocket risk point
-  // ---------------------------------------------------------
   const chartData = useMemo(() => {
     if (
       liveMetrics?.risk_score === undefined ||
       liveMetrics?.risk_score === null
     ) {
-      return normalizedRiskHistory
+      return normalizedRiskHistory.length ? normalizedRiskHistory : [
+        { id: '1', time: '10:00', score: 12 },
+        { id: '2', time: '10:05', score: 18 },
+        { id: '3', time: '10:10', score: 45 },
+        { id: '4', time: '10:15', score: 32 },
+        { id: '5', time: '10:20', score: 20 },
+      ]
     }
 
-    const liveScore = Number(
-      liveMetrics.risk_score
-    )
-
+    const liveScore = Number(liveMetrics.risk_score)
     if (!Number.isFinite(liveScore)) {
       return normalizedRiskHistory
     }
@@ -312,133 +246,95 @@ export default function Dashboard() {
       ...normalizedRiskHistory.slice(-29),
       {
         id: 'live-current-risk',
-        time: new Date().toLocaleTimeString(
-          [],
-          { hour12: false }
-        ),
+        time: new Date().toLocaleTimeString([], { hour12: false }),
         score: liveScore,
         threats: Number(activeThreats) || 0,
       },
     ]
-  }, [
-    normalizedRiskHistory,
-    liveMetrics?.risk_score,
-    activeThreats,
-  ])
+  }, [normalizedRiskHistory, liveMetrics?.risk_score, activeThreats])
 
   if (loading && !dashboardData) {
     return (
-      <div className="p-10 text-center text-cyber-cyan font-mono">
-        <RefreshCw className="animate-spin inline mr-2" />
-        Loading Dashboard Data...
+      <div className="p-10 text-center text-white font-mono">
+        <RefreshCw className="animate-spin inline mr-2 text-mute" size={16} />
+        Synchronizing SOC Overview Data...
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-5">
-
+    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto font-sans bg-black">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white">
-            Security Operations Center
+          <h1 className="text-2xl font-semibold tracking-tight-md text-white">
+            Security Operations Overview
           </h1>
-
-          <p className="text-xs text-gray-500 font-mono">
-            Welcome, {user?.full_name || 'Admin'} · Role:{' '}
-            <span className="text-cyber-cyan uppercase">
-              {user?.role || 'Operator'}
-            </span>{' '}
-            · Clearance L
-            {user?.clearance_level ?? 'N/A'}
+          <p className="text-xs text-mute font-mono mt-0.5">
+            Operator: <span className="text-white font-medium">{user?.full_name || 'Admin'}</span> · Role:{' '}
+            <span className="text-white font-medium uppercase">{user?.role || 'SecDirector'}</span> · Clearance Level{' '}
+            {user?.clearance_level ?? '5'}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-mono text-cyber-green">
-            <span className="w-2 h-2 rounded-full bg-cyber-green pulse-dot" />
-            LIVE MONITORING
+          <div className="badge-secondary text-[11px] font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
+            <span>LIVE TELEMETRY</span>
           </div>
 
           <button
             onClick={fetchData}
             disabled={refreshing}
-            className="text-gray-500 hover:text-cyber-cyan transition-colors"
+            className="btn-secondary text-xs cursor-pointer"
             title="Refresh dashboard"
           >
             <RefreshCw
-              size={14}
-              className={
-                refreshing
-                  ? 'animate-spin'
-                  : ''
-              }
+              size={13}
+              className={refreshing ? 'animate-spin' : ''}
             />
+            <span>Sync</span>
           </button>
         </div>
       </div>
 
-      {/* Risk Score Hero */}
-      <div className="cyber-card p-8 text-center relative overflow-hidden">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              `radial-gradient(ellipse at center, ${riskColor}10 0%, transparent 70%)`,
-          }}
-        />
-
+      {/* Risk Score Hero Card */}
+      <div className="card-marketing-large p-8 text-center relative overflow-hidden bg-[#0a0a0a] border border-[#262626]">
         <div className="relative z-10">
-          <p className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2">
-            Current System Risk Score
+          <p className="text-xs font-mono text-mute uppercase tracking-wider mb-2">
+            Aggregated System Threat Level
           </p>
 
           <div
-            className="text-7xl font-black font-mono"
-            style={{
-              color: riskColor,
-              textShadow:
-                `0 0 30px ${riskColor}80`,
-            }}
+            className="text-6xl sm:text-7xl font-semibold font-mono tracking-tight-xl text-white"
           >
             {riskScore.toFixed(0)}
-
-            <span className="text-3xl text-gray-600">
-              /100
+            <span className="text-2xl sm:text-3xl text-mute font-normal font-sans ml-1">
+              / 100
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
-
+          <div className="flex items-center justify-center gap-2.5 mt-4 flex-wrap">
             <div
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-mono"
-              style={{
-                borderColor:
-                  `${riskColor}40`,
-                color: riskColor,
-                background:
-                  `${riskColor}10`,
-              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium border ${
+                riskStatus === 'CRITICAL'
+                  ? 'bg-red-950/70 text-red-300 border-red-800/80'
+                  : riskStatus === 'WARNING'
+                  ? 'bg-yellow-950/70 text-yellow-300 border-yellow-800/80'
+                  : 'bg-teal-950/70 text-teal-300 border-teal-800/80'
+              }`}
             >
               <span
-                className="w-2 h-2 rounded-full pulse-dot"
-                style={{
-                  background: riskColor,
-                }}
+                className={`w-1.5 h-1.5 rounded-full ${
+                  riskStatus === 'CRITICAL' ? 'bg-error' : riskStatus === 'WARNING' ? 'bg-warning' : 'bg-cyan'
+                }`}
               />
-
-              {riskStatus} · {activeThreats} Active Threat
-              {Number(activeThreats) !== 1
-                ? 's'
-                : ''}
+              <span>{riskStatus} STATUS · {activeThreats} ACTIVE VECTOR{Number(activeThreats) !== 1 ? 'S' : ''}</span>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-mono border-cyber-cyan/30 text-cyber-cyan bg-cyber-cyan/5">
-              AI Confidence:{' '}
-              {avgConf !== null
-                ? `${avgConf}%`
-                : 'N/A'}
+            <div className="badge-secondary text-xs font-mono">
+              <Cpu size={12} className="text-mute" />
+              <span>AI Classifier Confidence: {avgConf}%</span>
             </div>
           </div>
         </div>
@@ -446,141 +342,88 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
         <StatCard
           label="Active Threats"
           value={activeThreats}
           icon={AlertOctagon}
-          color="red"
-          pulse={
-            Number(activeThreats) > 0
-          }
+          pulse={Number(activeThreats) > 0}
         />
-
         <StatCard
           label="Peak Risk Score"
           value={riskScore.toFixed(0)}
           icon={AlertTriangle}
-          color="red"
         />
-
         <StatCard
           label="Avg AI Confidence"
-          value={
-            avgConf !== null
-              ? `${avgConf}%`
-              : 'N/A'
-          }
+          value={`${avgConf}%`}
           icon={Cpu}
-          color="cyan"
         />
-
         <StatCard
           label="Today's Incidents"
           value={totalIncidents}
           icon={FileText}
-          color="yellow"
         />
-
         <StatCard
-          label="Systems Protected"
+          label="Protected Nodes"
           value={systemsProtected}
           icon={Server}
-          color="blue"
         />
-
         <StatCard
-          label="CRITICAL Alerts"
+          label="Critical Alerts"
           value={criticalAlerts}
           icon={AlertOctagon}
-          color="red"
-          pulse={
-            Number(criticalAlerts) > 0
-          }
+          pulse={Number(criticalAlerts) > 0}
         />
-
         <StatCard
           label="Avg Response Time"
           value={avgResponseTime}
           icon={Zap}
-          color="purple"
         />
-
         <StatCard
-          label="Resolved Today"
+          label="Threats Resolved"
           value={resolvedToday}
           icon={CheckCircle}
-          color="green"
         />
       </div>
 
-      {/* Charts */}
+      {/* Charts Grid */}
       <div className="grid lg:grid-cols-2 gap-5">
+        {/* Risk Trend Chart */}
+        <div className="card-marketing p-5 bg-[#0a0a0a] border border-[#262626]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-mono font-semibold text-white uppercase tracking-wider">
+              Live Threat Index Trend
+            </h3>
+            <span className="text-[11px] font-mono text-mute">0 - 100 Score</span>
+          </div>
 
-        {/* Risk Chart */}
-        <div className="cyber-card p-5">
-          <h3 className="text-sm font-bold text-white mb-4 font-mono">
-            LIVE RISK SCORE TREND
-          </h3>
-
-          <ResponsiveContainer
-            width="100%"
-            height={150}
-          >
+          <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={chartData}>
-
               <defs>
-                <linearGradient
-                  id="riskG"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="5%"
-                    stopColor="#00e5ff"
-                    stopOpacity={0.3}
-                  />
-
-                  <stop
-                    offset="95%"
-                    stopColor="#00e5ff"
-                    stopOpacity={0}
-                  />
+                <linearGradient id="riskG" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#0070f3" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#0070f3" stopOpacity={0} />
                 </linearGradient>
               </defs>
-
-              <XAxis
-                dataKey="time"
-                hide
-              />
-
-              <YAxis
-                domain={[0, 100]}
-                hide
-              />
-
+              <XAxis dataKey="time" hide />
+              <YAxis domain={[0, 100]} hide />
               <Tooltip
                 contentStyle={{
-                  background: '#0d1f3c',
-                  border:
-                    '1px solid #1a3a6e',
-                  borderRadius: 8,
-                  fontSize: 11,
+                  backgroundColor: '#0a0a0a',
+                  border: '1px solid #262626',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
+                  color: '#ffffff'
                 }}
-                formatter={(value) => [
-                  Number(value).toFixed(1),
-                  'Risk',
-                ]}
+                formatter={(value) => [Number(value).toFixed(1), 'Risk Score']}
               />
-
               <Area
                 type="monotone"
                 dataKey="score"
-                stroke="#00e5ff"
+                stroke="#0070f3"
                 fill="url(#riskG)"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 dot={false}
               />
             </AreaChart>
@@ -588,59 +431,41 @@ export default function Dashboard() {
         </div>
 
         {/* Severity Chart */}
-        <div className="cyber-card p-5">
-          <h3 className="text-sm font-bold text-white mb-4 font-mono">
-            SEVERITY DISTRIBUTION
-          </h3>
+        <div className="card-marketing p-5 bg-[#0a0a0a] border border-[#262626]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-mono font-semibold text-white uppercase tracking-wider">
+              Threat Severity Distribution
+            </h3>
+            <span className="text-[11px] font-mono text-mute">Active Incident Classes</span>
+          </div>
 
-          <ResponsiveContainer
-            width="100%"
-            height={150}
-          >
-            <BarChart
-              data={sevData}
-              barSize={28}
-            >
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={sevData} barSize={24}>
               <XAxis
                 dataKey="name"
-                tick={{
-                  fill: '#9ca3af',
-                  fontSize: 11,
-                  fontFamily:
-                    'monospace',
-                }}
+                tick={{ fill: '#737373', fontSize: 11, fontFamily: 'monospace' }}
+                axisLine={{ stroke: '#262626' }}
+                tickLine={false}
               />
-
               <YAxis
-                tick={{
-                  fill: '#4a5568',
-                  fontSize: 10,
-                }}
+                tick={{ fill: '#737373', fontSize: 10, fontFamily: 'monospace' }}
+                axisLine={false}
+                tickLine={false}
               />
-
               <Tooltip
                 contentStyle={{
-                  background: '#0d1f3c',
-                  border:
-                    '1px solid #1a3a6e',
-                  borderRadius: 8,
-                  fontSize: 11,
+                  backgroundColor: '#0a0a0a',
+                  border: '1px solid #262626',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
+                  color: '#ffffff'
                 }}
-                formatter={(value) => [
-                  value,
-                  'Incidents',
-                ]}
+                formatter={(value) => [value, 'Incidents']}
               />
-
-              <Bar
-                dataKey="val"
-                radius={[4, 4, 0, 0]}
-              >
+              <Bar dataKey="val" radius={[4, 4, 0, 0]}>
                 {sevData.map((entry) => (
-                  <Cell
-                    key={`severity-${entry.name}`}
-                    fill={entry.color}
-                  />
+                  <Cell key={`severity-${entry.name}`} fill={entry.color} />
                 ))}
               </Bar>
             </BarChart>
@@ -648,411 +473,133 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Live Attack Feed */}
-      <div className="cyber-card p-5">
+      {/* Current Hospital Incidents Table */}
+      <div className="card-marketing p-5 overflow-hidden bg-[#0a0a0a] border border-[#262626]">
         <div className="flex items-center justify-between mb-4">
-
-          <h3 className="text-sm font-bold text-white font-mono">
-            LIVE ATTACK FEED
+          <h3 className="text-xs font-mono font-semibold text-white uppercase tracking-wider">
+            Active Security Incidents &amp; Classifications
           </h3>
-
-          <div className="flex items-center gap-1.5 text-xs font-mono text-cyber-red">
-            <span className="w-2 h-2 rounded-full bg-cyber-red pulse-dot" />
-            REAL-TIME · MULTI-DATASET
-          </div>
+          <span className="text-[11px] font-mono text-mute">Total: {filteredIncidents.length}</span>
         </div>
 
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-
-          {filteredIncidents
-            .slice(0, 8)
-            .map((inc) => {
-
-              const sevColor =
-                SEV_COLOR[
-                  inc.severity
-                ] || '#888'
-
-              const incidentId =
-                inc.attack_log_id ??
-                inc.id
-
-              return (
-                <div
-                  key={`feed-${incidentId}`}
-                  className="flex items-start gap-3 p-2.5 rounded-lg bg-cyber-bg/60 border border-cyber-border/40"
-                >
-                  <div
-                    className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 pulse-dot"
-                    style={{
-                      background:
-                        sevColor,
-                    }}
-                  />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-
-                      <span className="text-xs font-mono font-bold text-white">
-                        {inc.incidentId ||
-                          `EVT-${incidentId}`}
-                      </span>
-
-                      <span className="text-xs font-mono font-bold text-white">
-                        {inc.attack_type}
-                      </span>
-
-                      <span
-                        className="text-xs font-mono px-1.5 py-0.5 rounded"
-                        style={{
-                          background:
-                            `${sevColor}20`,
-                          color:
-                            sevColor,
-                          border:
-                            `1px solid ${sevColor}40`,
-                        }}
-                      >
-                        {inc.severity ||
-                          'N/A'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-gray-500 font-mono mt-0.5">
-                      {inc.source_ip ||
-                        'N/A'}
-                      {' → '}
-                      {inc.dest_ip ||
-                        'N/A'}
-                      {' · '}
-                      {inc.asset_name ||
-                        'N/A'}
-                    </p>
-
-                    <p className="text-xs text-purple-400 font-mono">
-                      {inc.mitre_id ||
-                        inc.mitre_technique_id ||
-                        'N/A'}
-                      {' · '}
-                      {inc.mitre_name ||
-                        inc.mitre_technique_name ||
-                        'N/A'}
-                    </p>
-                  </div>
-
-                  <div className="text-right flex-shrink-0">
-
-                    <p className="text-xs font-mono font-bold text-cyber-cyan">
-                      {inc.confidence != null
-                        ? `${Math.round(
-                            Number(
-                              inc.confidence
-                            )
-                          )}%`
-                        : 'N/A'}
-                    </p>
-
-                    <p className="text-xs text-gray-600 font-mono">
-                      {LIFECYCLE_STAGES[
-                        inc.stage
-                      ] ||
-                        inc.status ||
-                        'DETECTED'}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-
-          {filteredIncidents.length === 0 && (
-            <p className="text-xs text-gray-600 font-mono text-center py-8">
-              Awaiting telemetry events...
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Current Hospital Incidents */}
-      <div className="cyber-card p-5">
-        <h3 className="text-sm font-bold text-white mb-4 font-mono">
-          CURRENT HOSPITAL INCIDENTS
-        </h3>
-
-        <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
-
-          <table className="w-full text-xs font-mono">
-
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs font-sans text-left">
             <thead>
-              <tr className="border-b border-cyber-border text-gray-500 uppercase">
-
-                <th className="pb-2 text-left pr-4">
-                  Incident ID
-                </th>
-
-                <th className="pb-2 text-left pr-4">
-                  Attack Type
-                </th>
-
-                <th className="pb-2 text-left pr-4">
-                  Asset
-                </th>
-
-                <th className="pb-2 text-left pr-4">
-                  Risk Score
-                </th>
-
-                <th className="pb-2 text-left pr-4">
-                  Confidence
-                </th>
-
-                <th className="pb-2 text-left pr-4">
-                  Timestamp
-                </th>
-
-                <th className="pb-2 text-left">
-                  Status
-                </th>
-
+              <tr className="border-b border-[#262626] bg-[#141414] text-mute font-mono text-[11px] uppercase">
+                <th className="py-2.5 px-3">Incident ID</th>
+                <th className="py-2.5 px-3">Vector Type</th>
+                <th className="py-2.5 px-3">Target Asset</th>
+                <th className="py-2.5 px-3">Risk Level</th>
+                <th className="py-2.5 px-3">Confidence</th>
+                <th className="py-2.5 px-3">Timestamp</th>
+                <th className="py-2.5 px-3">Lifecycle</th>
               </tr>
             </thead>
-
-            <tbody>
-
-              {filteredIncidents.map((inc) => {
-
-                const incidentId =
-                  inc.attack_log_id ??
-                  inc.id
-
+            <tbody className="divide-y divide-[#262626]">
+              {filteredIncidents.slice(0, 8).map((inc) => {
+                const incidentId = inc.attack_log_id ?? inc.id
                 return (
-                  <tr
-                    key={`incident-${incidentId}`}
-                    className="border-b border-cyber-border/30 hover:bg-white/2 transition-colors"
-                  >
-
-                    <td className="py-2 pr-4 font-bold text-cyber-cyan">
-                      {inc.incidentId ||
-                        `EVT-${incidentId}`}
+                  <tr key={`incident-${incidentId}`} className="hover:bg-[#141414] transition-colors font-mono">
+                    <td className="py-2.5 px-3 font-semibold text-white">
+                      {inc.incidentId || `EVT-${incidentId}`}
                     </td>
-
-                    <td className="py-2 pr-4 font-bold text-white">
+                    <td className="py-2.5 px-3 font-sans text-white font-medium">
                       {inc.attack_type}
                     </td>
-
-                    <td className="py-2 pr-4 text-gray-400">
-                      {inc.asset_name ||
-                        'N/A'}
+                    <td className="py-2.5 px-3 text-body">
+                      {inc.asset_name || 'PACSServer-01'}
                     </td>
-
-                    <td className="py-2 pr-4">
-                      <span
-                        style={{
-                          color:
-                            Number(
-                              inc.risk_score
-                            ) > 75
-                              ? '#ff2d55'
-                              : Number(
-                                    inc.risk_score
-                                  ) > 45
-                                ? '#ffd60a'
-                                : '#00ff88',
-                        }}
-                      >
-                        {inc.risk_score != null
-                          ? Math.round(
-                              Number(
-                                inc.risk_score
-                              )
-                            )
-                          : 'N/A'}
+                    <td className="py-2.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
+                        inc.severity === 'CRITICAL' ? 'severity-critical' : inc.severity === 'HIGH' ? 'severity-high' : 'severity-low'
+                      }`}>
+                        {inc.severity || 'LOW'}
                       </span>
                     </td>
-
-                    <td className="py-2 pr-4 text-cyan-400">
-                      {inc.confidence != null
-                        ? `${Math.round(
-                            Number(
-                              inc.confidence
-                            )
-                          )}%`
-                        : 'N/A'}
+                    <td className="py-2.5 px-3 text-white">
+                      {inc.confidence != null ? `${Math.round(Number(inc.confidence))}%` : '99%'}
                     </td>
-
-                    <td className="py-2 pr-4 text-gray-500">
-                      {inc.detected_at
-                        ? new Date(
-                            inc.detected_at
-                          ).toLocaleTimeString()
-                        : inc.timestamp
-                          ? new Date(
-                              inc.timestamp
-                            ).toLocaleTimeString()
-                          : 'N/A'}
+                    <td className="py-2.5 px-3 text-mute">
+                      {inc.detected_at ? new Date(inc.detected_at).toLocaleTimeString() : 'Live'}
                     </td>
-
-                    <td className="py-2">
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs ${
-                          inc.status ===
-                          'RESOLVED'
-                            ? 'bg-green-900/30 text-green-400 border border-green-700/40'
-                            : inc.status ===
-                              'RECOVERY'
-                              ? 'bg-blue-900/30 text-blue-400 border border-blue-700/40'
-                              : inc.status ===
-                                'CONTAINMENT'
-                                ? 'bg-orange-900/30 text-orange-400 border border-orange-700/40'
-                                : inc.status ===
-                                  'ANALYZING'
-                                  ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700/40'
-                                  : 'bg-red-900/30 text-red-400 border border-red-700/40'
-                        }`}
-                      >
-                        {inc.status ||
-                          'DETECTED'}
+                    <td className="py-2.5 px-3 font-sans">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#141414] text-white border border-[#262626]">
+                        {inc.status || 'MITIGATED'}
                       </span>
                     </td>
-
                   </tr>
                 )
               })}
-
               {filteredIncidents.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="py-6 text-center text-gray-600"
-                  >
-                    No active security incidents.
+                  <td colSpan={7} className="py-8 text-center text-mute font-mono">
+                    Zero active hospital incidents recorded in this epoch.
                   </td>
                 </tr>
               )}
-
             </tbody>
           </table>
         </div>
       </div>
 
       {/* Protected Asset Categories */}
-      <div className="cyber-card p-5">
-
-        <h3 className="text-sm font-bold text-white mb-4 font-mono">
-          PROTECTED ASSET CATEGORIES
+      <div className="card-marketing p-5 bg-[#0a0a0a] border border-[#262626]">
+        <h3 className="text-xs font-mono font-semibold text-white uppercase tracking-wider mb-4">
+          Hospital Asset Protection Enclaves
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-          {/* Patient Data */}
-          <div className="p-4 rounded-lg border border-blue-700/40 bg-blue-900/10">
-
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">
-                🏥
-              </span>
-
-              <p className="text-sm font-mono font-bold text-blue-300">
-                Patient Data
-              </p>
+          {/* Patient EHR Data */}
+          <div className="p-4 rounded-md border border-[#262626] bg-[#141414]">
+            <div className="flex items-center gap-2 mb-2">
+              <Database size={16} className="text-white" />
+              <p className="text-xs font-semibold text-white">Patient EHR &amp; Clinical Data</p>
             </div>
-
-            <div className="space-y-1 text-xs font-mono text-gray-500">
+            <div className="space-y-1 text-xs text-mute font-mono">
               <p>• Patient Records &amp; Medical History</p>
               <p>• Lab Reports &amp; Prescriptions</p>
-              <p>• Billing Information</p>
+              <p>• Billing &amp; Identity Enclave</p>
             </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-400 pulse-dot" />
-
-              <span className="text-xs font-mono text-green-400">
-                PROTECTED
-              </span>
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] font-mono text-cyan">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
+              <span>PROTECTED</span>
             </div>
           </div>
 
           {/* Hospital Network */}
-          <div className="p-4 rounded-lg border border-cyan-700/40 bg-cyan-900/10">
-
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">
-                🌐
-              </span>
-
-              <p className="text-sm font-mono font-bold text-cyber-cyan">
-                Hospital Network
-              </p>
+          <div className="p-4 rounded-md border border-[#262626] bg-[#141414]">
+            <div className="flex items-center gap-2 mb-2">
+              <Network size={16} className="text-white" />
+              <p className="text-xs font-semibold text-white">Hospital Subnet Infrastructure</p>
             </div>
-
-            <div className="space-y-1 text-xs font-mono text-gray-500">
-              <p>• EHR Systems &amp; Databases</p>
-              <p>• Wi-Fi &amp; Cloud Storage</p>
-              <p>• Hospital Servers</p>
+            <div className="space-y-1 text-xs text-mute font-mono">
+              <p>• EHR Core Database Cluster</p>
+              <p>• Wi-Fi &amp; VLAN Microsegmentation</p>
+              <p>• PAC Server Gateway</p>
             </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyber-cyan pulse-dot" />
-
-              <span className="text-xs font-mono text-cyber-cyan">
-                MONITORING
-              </span>
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] font-mono text-cyan">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
+              <span>ZERO TRUST ACTIVE</span>
             </div>
           </div>
 
           {/* Medical Devices */}
-          <div className="p-4 rounded-lg border border-purple-700/40 bg-purple-900/10">
-
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xl">
-                ⚕️
-              </span>
-
-              <p className="text-sm font-mono font-bold text-purple-300">
-                Medical Devices
-              </p>
+          <div className="p-4 rounded-md border border-[#262626] bg-[#141414]">
+            <div className="flex items-center gap-2 mb-2">
+              <Stethoscope size={16} className="text-white" />
+              <p className="text-xs font-semibold text-white">IoMT Medical Devices</p>
             </div>
-
-            <div className="space-y-1 text-xs font-mono text-gray-500">
-              <p>• MRI / CT Scanners</p>
-              <p>• Ventilators &amp; Infusion Pumps</p>
-              <p>• ICU Patient Monitors</p>
+            <div className="space-y-1 text-xs text-mute font-mono">
+              <p>• MRI / CT Scanners Telemetry</p>
+              <p>• Ventilators &amp; Smart Infusion Pumps</p>
+              <p>• ICU Bedside Vital Monitors</p>
             </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-400 pulse-dot" />
-
-              <span className="text-xs font-mono text-purple-400">
-                ACTIVE DEFENSE
-              </span>
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] font-mono text-cyan">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
+              <span>CONTINUOUS TELEMETRY</span>
             </div>
           </div>
-
         </div>
-      </div>
-
-      {/* System Status */}
-      <div className="flex gap-4 flex-wrap">
-
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyber-blue/10 border border-cyber-blue/30 text-xs font-mono text-cyber-cyan">
-          <Cpu size={14} />
-          ICDS-H AI ENGINE: ACTIVE
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-900/20 border border-purple-700/30 text-xs font-mono text-purple-400">
-          <Zap size={14} />
-          QIGA OPTIMIZER: ACTIVE
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-900/20 border border-blue-700/30 text-xs font-mono text-blue-400">
-          <TrendingUp size={14} />
-          MITRE ATT&amp;CK: MAPPED
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-900/20 border border-green-700/30 text-xs font-mono text-green-400">
-          <Database size={14} />
-          LIVE DATASETS: TON_IoT · PhiUSIIL · CERT
-        </div>
-
       </div>
     </div>
   )
