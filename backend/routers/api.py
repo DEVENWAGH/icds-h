@@ -4693,6 +4693,275 @@ SIM_ATTACK_MAPPING = {
 # Monitoring background stream flag (starts paused until explicitly toggled)
 REPLAY_ACTIVE_FLAG = {"enabled": False}
 
+AUTO_ATTACK_STATE = {
+    "enabled": False,
+    "current_scenario": None,
+    "scenario_count": 0,
+}
+_auto_attack_task = None
+
+
+async def _run_backend_auto_attack():
+    """Continuously execute random attack scenarios in background on server."""
+    import random
+    from main import process_security_event
+    from ws_manager import manager
+    from cml.event_simulator import simulator
+
+    scenarios_map = {
+        "hospital_breach": [
+            ("Scanning", "LOW"),
+            ("Password Attack", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "phishing_campaign": [
+            ("Phishing", "LOW"),
+            ("Insider Threat", "MEDIUM"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "ransomware_kill_chain": [
+            ("Phishing", "MEDIUM"),
+            ("Password Attack", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "apt_intrusion": [
+            ("Scanning", "LOW"),
+            ("Backdoor", "MEDIUM"),
+            ("Injection", "HIGH"),
+            ("Anomaly (Zero-Day)", "HIGH"),
+            ("Ransomware", "CRITICAL"),
+        ],
+        "data_exfiltration": [
+            ("Phishing", "MEDIUM"),
+            ("Insider Threat", "CRITICAL"),
+            ("Scanning", "HIGH"),
+        ],
+        "ddos_wave": [
+            ("DDoS", "HIGH"),
+            ("DDoS", "CRITICAL"),
+            ("DDoS", "CRITICAL"),
+        ],
+        "zero_day_outbreak": [
+            ("Anomaly (Zero-Day)", "HIGH"),
+            ("Anomaly (Zero-Day)", "CRITICAL"),
+            ("Ransomware", "CRITICAL"),
+        ],
+    }
+    scenarios_keys = list(scenarios_map.keys())
+    last_scenario = ""
+
+    print("[ICDS-H] Persistent Server-Side Auto Attack service started.")
+    while AUTO_ATTACK_STATE["enabled"]:
+        try:
+            candidates = [s for s in scenarios_keys if s != last_scenario]
+            scenario_name = random.choice(candidates if candidates else scenarios_keys)
+            last_scenario = scenario_name
+            AUTO_ATTACK_STATE["current_scenario"] = scenario_name
+
+            await manager.broadcast({
+                "type": "auto_attack_status",
+                "data": {
+                    "enabled": True,
+                    "current_scenario": scenario_name,
+                    "scenario_count": AUTO_ATTACK_STATE["scenario_count"],
+                    "stage": "INJECTING",
+                    "msg": f"[AUTO] Starting scenario: {scenario_name.replace('_', ' ').upper()}",
+                },
+            })
+
+            db = SessionLocal()
+            try:
+                steps = scenarios_map.get(scenario_name, [("DDoS", "HIGH")])
+                for attack_type, sev in steps:
+                    if not AUTO_ATTACK_STATE["enabled"]:
+                        break
+                    try:
+                        if "Anomaly" in attack_type or "Zero-Day" in attack_type:
+                            ev = simulator.generate_anomalous_event()
+                            await process_security_event(
+                                raw_features=ev["raw_features"],
+                                dataset_source=ev["dataset_source"],
+                                input_source="AUTO_ATTACK_ZERO_DAY",
+                                metadata=ev.get("metadata"),
+                                db=db,
+                            )
+                        else:
+                            target_info = SIM_ATTACK_MAPPING.get(attack_type, ("TON_IoT", attack_type.lower()))
+                            ds_src, tgt_cls = target_info
+                            if ds_src == "TON_IoT":
+                                ev = simulator.generate_ton_iot_event(target_class=tgt_cls)
+                            elif ds_src == "PhiUSIIL":
+                                ev = simulator.generate_phishing_event(target_class=tgt_cls)
+                            elif ds_src == "CERT":
+                                ev = simulator.generate_cert_event(target_class=tgt_cls)
+                            else:
+                                ev = simulator.generate_random_event()
+                            await process_security_event(
+                                raw_features=ev["raw_features"],
+                                dataset_source=ev["dataset_source"],
+                                input_source="AUTO_ATTACK",
+                                metadata=ev.get("metadata"),
+                                db=db,
+                            )
+                    except Exception as step_err:
+                        print(f"[AUTO_ATTACK STEP ERROR] {step_err}")
+                    await asyncio.sleep(0.8)
+            finally:
+                db.close()
+
+            AUTO_ATTACK_STATE["scenario_count"] += 1
+            await manager.broadcast({
+                "type": "auto_attack_status",
+                "data": {
+                    "enabled": True,
+                    "current_scenario": scenario_name,
+                    "scenario_count": AUTO_ATTACK_STATE["scenario_count"],
+                    "stage": "COMPLETE",
+                    "msg": f"[AUTO] Scenario {scenario_name.replace('_', ' ').upper()} completed. Next in 4s...",
+                },
+            })
+
+            # Wait 4s between scenarios
+            for _ in range(8):
+                if not AUTO_ATTACK_STATE["enabled"]:
+                    break
+                await asyncio.sleep(0.5)
+
+        except Exception as loop_err:
+            print(f"[AUTO_ATTACK LOOP ERROR] {loop_err}")
+            await asyncio.sleep(3)
+
+    AUTO_ATTACK_STATE["current_scenario"] = None
+    print("[ICDS-H] Persistent Server-Side Auto Attack service stopped.")
+    from ws_manager import manager
+    await manager.broadcast({
+        "type": "auto_attack_status",
+        "data": {
+            "enabled": False,
+            "current_scenario": None,
+            "scenario_count": AUTO_ATTACK_STATE["scenario_count"],
+            "stage": "IDLE",
+            "msg": "Auto Attack stopped by user.",
+        },
+    })
+
+
+@attack_sim_router.get("/auto-attack/status")
+def get_auto_attack_status(current_user=Depends(get_current_user)):
+    return AUTO_ATTACK_STATE
+
+
+@attack_sim_router.post("/auto-attack/toggle")
+async def toggle_auto_attack(
+    enabled: Optional[bool] = None,
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    global _auto_attack_task
+    if enabled is not None:
+        target = enabled
+    else:
+        target = not AUTO_ATTACK_STATE["enabled"]
+
+    AUTO_ATTACK_STATE["enabled"] = target
+    if target:
+        if _auto_attack_task is None or _auto_attack_task.done():
+            _auto_attack_task = asyncio.create_task(_run_backend_auto_attack())
+    else:
+        AUTO_ATTACK_STATE["current_scenario"] = None
+
+    return {
+        "enabled": AUTO_ATTACK_STATE["enabled"],
+        "scenario_count": AUTO_ATTACK_STATE["scenario_count"],
+        "current_scenario": AUTO_ATTACK_STATE["current_scenario"],
+        "message": f"Auto Attack service is now {'RUNNING' if AUTO_ATTACK_STATE['enabled'] else 'STOPPED'}",
+    }
+
+
+@attack_sim_router.post("/auto-attack/start")
+async def start_auto_attack(current_user=Depends(require_role(["admin", "analyst"]))):
+    return await toggle_auto_attack(enabled=True, current_user=current_user)
+
+
+@attack_sim_router.post("/auto-attack/stop")
+async def stop_auto_attack(current_user=Depends(require_role(["admin", "analyst"]))):
+    return await toggle_auto_attack(enabled=False, current_user=current_user)
+
+
+@attack_sim_router.post("/auto-attack/reset-count")
+async def reset_auto_attack_count():
+    """Reset only the scenario counter to 0 without stopping the running auto-attack loop."""
+    AUTO_ATTACK_STATE["scenario_count"] = 0
+    try:
+        from ws_manager import manager
+        await manager.broadcast({
+            "type": "auto_attack_status",
+            "data": {
+                "enabled": AUTO_ATTACK_STATE["enabled"],
+                "current_scenario": AUTO_ATTACK_STATE["current_scenario"],
+                "scenario_count": 0,
+                "stage": "INJECTING" if AUTO_ATTACK_STATE["enabled"] else "IDLE",
+                "msg": "Auto Attack counter reset to 0.",
+            },
+        })
+        await manager.broadcast({
+            "type": "clear_telemetry",
+            "data": {"message": "Telemetry cleared by user."},
+        })
+    except Exception as err:
+        print(f"[RESET COUNT WS ERR] {err}")
+    return {
+        "status": "ok",
+        "enabled": AUTO_ATTACK_STATE["enabled"],
+        "scenario_count": 0,
+        "current_scenario": AUTO_ATTACK_STATE["current_scenario"],
+        "message": "Scenario counter reset to 0.",
+    }
+
+
+@attack_sim_router.post("/auto-attack/reset")
+async def reset_auto_attack():
+    """Reset auto-attack counter to 0, stop background worker, and broadcast reset to all clients."""
+    global _auto_attack_task
+    AUTO_ATTACK_STATE["enabled"] = False
+    AUTO_ATTACK_STATE["current_scenario"] = None
+    AUTO_ATTACK_STATE["scenario_count"] = 0
+
+    if _auto_attack_task and not _auto_attack_task.done():
+        try:
+            _auto_attack_task.cancel()
+        except Exception:
+            pass
+        _auto_attack_task = None
+
+    try:
+        from ws_manager import manager
+        await manager.broadcast({
+            "type": "auto_attack_status",
+            "data": {
+                "enabled": False,
+                "current_scenario": None,
+                "scenario_count": 0,
+                "stage": "IDLE",
+                "msg": "Auto Attack counter reset to 0.",
+            },
+        })
+        await manager.broadcast({
+            "type": "clear_telemetry",
+            "data": {
+                "message": "Telemetry cleared by system.",
+            },
+        })
+    except Exception as err:
+        print(f"[RESET WS ERR] {err}")
+
+    return {
+        "status": "ok",
+        "enabled": False,
+        "scenario_count": 0,
+        "current_scenario": None,
+        "message": "Auto attack reset to 0 successfully.",
+    }
+
 
 @attack_sim_router.get("/replay/status")
 def get_replay_status(current_user=Depends(get_current_user)):
@@ -4707,7 +4976,7 @@ def toggle_replay(enabled: Optional[bool] = None, current_user=Depends(require_r
         REPLAY_ACTIVE_FLAG["enabled"] = not REPLAY_ACTIVE_FLAG["enabled"]
     return {
         "enabled": REPLAY_ACTIVE_FLAG["enabled"],
-        "message": f"Simulated monitoring service is now {'ENABLED' if REPLAY_ACTIVE_FLAG['enabled'] else 'PAUSED'}"
+        "message": f"Simulated monitoring service is now {'ENABLED' if REPLAY_ACTIVE_FLAG['enabled'] else 'PAUSED'}",
     }
 
 

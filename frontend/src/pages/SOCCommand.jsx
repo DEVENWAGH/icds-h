@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import {
   Shield, Activity, Bell, AlertOctagon, FileText, Brain, Zap, Cpu,
-  Database, Settings, LogOut, User, RefreshCw, Play, Pause, Wifi, WifiOff,
+  Database, Settings, LogOut, User, RefreshCw, Play, Wifi, WifiOff,
   ChevronRight, X, ShieldOff, ShieldCheck, AlertTriangle, Lock,
   Unlock, Server, Eye, TrendingUp, CheckCircle, XCircle, BarChart3,
-  Terminal, Crosshair, Radio, Layers, Flame, Search, Filter, Power
+  Terminal, Crosshair, Radio, Layers, Flame, Search, Filter, Power, Square
 } from "lucide-react"
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -13,7 +13,7 @@ import {
 import { useAuthStore, useAlertStore, useIncidentStore } from "../store"
 import { useSOCStore } from "../store/socEngine"
 import { useWebSocket } from "../hooks/useWebSocket"
-import { useAttackSimulator } from "../hooks/useAttackSimulator"
+import { useSimulatorStore } from "../store/simulatorStore"
 import api from "../utils/api"
 import { useNavigate } from "react-router-dom"
 
@@ -318,7 +318,22 @@ const SCENARIOS = [
 ]
 
 function SimulatorPanel({ sim }) {
-  const { stage, log, loading, fireAttack, fireScenario, fireAnomaly, uploadCsv, clearLog } = sim
+  const {
+    stage,
+    log,
+    loading,
+    autoRunning,
+    currentScenario,
+    autoScenarioCount,
+    fireAttack,
+    fireScenario,
+    fireAnomaly,
+    uploadCsv,
+    clearLog,
+    startAutoAttack,
+    stopAutoAttack,
+    toggleAutoAttack,
+  } = sim
   const [selected, setSelected] = useState("DDoS")
   const [severity, setSeverity] = useState("HIGH")
   const [activeTab, setActiveTab] = useState("attacks")
@@ -345,8 +360,65 @@ function SimulatorPanel({ sim }) {
         </span>
         <span className="text-[9px] font-mono px-2 py-0.5 rounded font-black tracking-wider uppercase"
           style={{ background: `${stageColor[stage]}25`, color: stageColor[stage], border: `1px solid ${stageColor[stage]}50` }}>
-          {stage}
+          {autoRunning ? "AUTO-ATTACKING" : stage}
         </span>
+      </div>
+
+      {/* ─── AUTO ATTACK MASTER CONTROLLER ─────────────────────────── */}
+      <div className={`p-2.5 rounded-lg border transition-all duration-300 flex flex-col gap-1.5 ${
+        autoRunning
+          ? "bg-rose-950/60 border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.35)]"
+          : "bg-slate-900/60 border-cyan-500/20 hover:border-cyan-500/40"
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${autoRunning ? "bg-rose-500 pulse-dot" : "bg-slate-500"}`} />
+            <span className="text-[10px] font-mono font-black tracking-wider uppercase text-white">
+              CONTINUOUS AUTO ATTACK
+            </span>
+          </div>
+          <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+            autoRunning
+              ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse"
+              : "bg-slate-800 text-slate-400"
+          }`}>
+            {autoRunning ? `ACTIVE (${autoScenarioCount} RUN)` : "OFF"}
+          </span>
+        </div>
+
+        {autoRunning && currentScenario && (
+          <div className="text-[9px] font-mono text-rose-300 bg-rose-950/80 px-2 py-1 rounded border border-rose-500/30 flex items-center justify-between">
+            <span className="truncate">Scenario: <strong className="text-white">{currentScenario.replace(/_/g, " ").toUpperCase()}</strong></span>
+            <RefreshCw size={10} className="animate-spin text-rose-400 flex-shrink-0 ml-1" />
+          </div>
+        )}
+
+        <button
+          onClick={toggleAutoAttack}
+          className={`w-full py-2 font-mono font-bold text-xs rounded-md flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-md ${
+            autoRunning
+              ? "bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_12px_rgba(244,63,94,0.5)] active:scale-[0.98]"
+              : "bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 font-black active:scale-[0.98]"
+          }`}
+          title={autoRunning ? "Click to stop auto attack" : "Start continuous random attack scenarios (will not stop until clicked)"}
+        >
+          {autoRunning ? (
+            <>
+              <Square size={12} className="fill-white" />
+              <span>STOP AUTO ATTACK</span>
+            </>
+          ) : (
+            <>
+              <Zap size={12} className="fill-slate-950 text-slate-950" />
+              <span>START AUTO ATTACK (RANDOM SCENARIOS)</span>
+            </>
+          )}
+        </button>
+        <div className="text-[8px] font-mono text-slate-400 text-center leading-tight">
+          {autoRunning
+            ? "Auto Attack is LIVE: running random scenarios continuously until you click STOP."
+            : "Runs random attack scenarios continuously without stopping on its own."}
+        </div>
       </div>
 
       <div className="flex gap-1 bg-black/50 p-0.5 rounded-lg border border-cyan-500/20">
@@ -381,8 +453,8 @@ function SimulatorPanel({ sim }) {
             ))}
           </div>
 
-          <button onClick={() => fireAttack(selected, severity)} disabled={loading}
-            className="w-full py-2 font-mono font-bold text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-150 shadow-lg hover:brightness-125 active:scale-[0.98] cursor-pointer"
+          <button onClick={() => fireAttack(selected, severity)} disabled={loading || autoRunning}
+            className="w-full py-2 font-mono font-bold text-xs rounded-lg flex items-center justify-center gap-2 transition-all duration-150 shadow-lg hover:brightness-125 active:scale-[0.98] cursor-pointer disabled:opacity-50"
             style={{
               background: loading ? "#1e293b" : "linear-gradient(135deg,#ff2d55,#ff6b35)",
               color: loading ? "#94a3b8" : "#fff",
@@ -393,7 +465,7 @@ function SimulatorPanel({ sim }) {
               : <><Play size={13} /> LAUNCH {selected.toUpperCase()}</>}
           </button>
 
-          <button onClick={() => fireAnomaly(severity)} disabled={loading}
+          <button onClick={() => fireAnomaly(severity)} disabled={loading || autoRunning}
             className="w-full py-1.5 font-mono font-bold text-[10px] rounded-lg flex items-center justify-center gap-1.5 transition-all duration-150 hover:brightness-125 active:scale-[0.98] cursor-pointer disabled:opacity-50"
             style={{
               background: "linear-gradient(135deg,#7c3aed,#0ea5e9)",
@@ -406,9 +478,31 @@ function SimulatorPanel({ sim }) {
         </>
       ) : activeTab === "scenarios" ? (
         <div className="space-y-1.5 overflow-y-auto pr-1" style={{ maxHeight: "230px" }}>
+          <button
+            onClick={toggleAutoAttack}
+            className={`w-full p-2 rounded border text-left transition flex items-center justify-between cursor-pointer ${
+              autoRunning
+                ? "bg-rose-950/60 border-rose-500/50 text-rose-300"
+                : "bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/40"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Zap size={13} className={autoRunning ? "text-rose-400 animate-bounce" : "text-emerald-400"} />
+              <div>
+                <div className="text-xs font-mono font-bold text-white">
+                  {autoRunning ? "STOP AUTO ATTACK LOOP" : "CONTINUOUS RANDOM SCENARIOS"}
+                </div>
+                <div className="text-[9px] font-mono text-slate-400">
+                  {autoRunning ? `Running continuously (${autoScenarioCount} executed)` : "Runs scenarios in random loop until stopped"}
+                </div>
+              </div>
+            </div>
+            {autoRunning ? <Square size={11} className="fill-rose-400 text-rose-400" /> : <Play size={11} className="text-emerald-400" />}
+          </button>
+
           {SCENARIOS.map(s => (
-            <button key={s.key} onClick={() => fireScenario(s.key)} disabled={loading}
-              className="w-full cyber-card p-2 text-left hover:bg-white/5 transition group flex items-center justify-between cursor-pointer">
+            <button key={s.key} onClick={() => fireScenario(s.key)} disabled={loading || autoRunning}
+              className="w-full cyber-card p-2 text-left hover:bg-white/5 transition group flex items-center justify-between cursor-pointer disabled:opacity-50">
               <div>
                 <div className="text-xs font-mono text-white group-hover:text-cyber-cyan transition font-bold">{s.label}</div>
                 <div className="text-[9px] font-mono text-slate-400">{s.desc}</div>
@@ -425,8 +519,8 @@ function SimulatorPanel({ sim }) {
             <div className="text-[10px] font-mono text-slate-400 mt-1">Upload TON_IoT, PhiUSIIL, or CERT .csv files for live ML pipeline analysis</div>
           </div>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileChange} className="hidden" />
-          <button onClick={() => fileInputRef.current?.click()} disabled={loading}
-            className="w-full py-2.5 font-mono font-bold text-xs rounded-lg btn-primary cursor-pointer flex items-center justify-center gap-2">
+          <button onClick={() => fileInputRef.current?.click()} disabled={loading || autoRunning}
+            className="w-full py-2.5 font-mono font-bold text-xs rounded-lg btn-primary cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50">
             {loading ? <RefreshCw size={13} className="animate-spin text-slate-950" /> : <FileText size={13} />}
             {loading ? "PROCESSING CSV..." : "SELECT CSV FILE"}
           </button>
@@ -435,7 +529,20 @@ function SimulatorPanel({ sim }) {
 
       <div className="flex items-center justify-between mt-0.5">
         <span className="text-[10px] text-slate-400 font-mono">SIM TELEMETRY CONSOLE</span>
-        <button onClick={clearLog} className="text-[10px] text-slate-500 hover:text-slate-300 font-mono transition">clear</button>
+        <button
+          onClick={async () => {
+            clearLog()
+            if (!autoRunning) {
+              // Not running: also reset stage locally
+              useSimulatorStore.setState({ stage: 'IDLE', lastResult: null })
+            }
+            // Always reset the scenario counter on backend (keeps attack running if live)
+            try {
+              await import('../utils/api').then(m => m.default.post('/sim/auto-attack/reset-count'))
+            } catch (e) { console.warn('[clear] reset-count failed:', e) }
+          }}
+          className="text-[10px] text-slate-500 hover:text-slate-300 font-mono transition"
+        >clear</button>
       </div>
       <div className="flex-1 overflow-y-auto space-y-0.5 bg-black/60 rounded-lg border border-slate-800 p-2 min-h-[90px] max-h-[220px]">
         {log.length === 0
@@ -458,7 +565,15 @@ export default function SOCCommand() {
   const { selectedAttackLogId, setSelectedAttackLogId } = useIncidentStore()
   const navigate = useNavigate()
   useWebSocket()
-  const sim = useAttackSimulator()
+
+  // Use server-side Zustand store instead of client-side hook
+  // so auto-attack persists across page navigation and tab switches
+  const sim = useSimulatorStore()
+
+  // Sync auto-attack status from backend on mount (e.g. after navigating back)
+  useEffect(() => {
+    useSimulatorStore.getState().fetchStatus()
+  }, [])
 
   const [drawer, setDrawer] = useState(false)
   const [drawerTitle, setDrawerTitle] = useState("")
@@ -473,8 +588,6 @@ export default function SOCCommand() {
   const [chartHistory, setChartHistory] = useState([])
   const [attackDistrib, setAttackDistrib] = useState([])
   const [feedFilter, setFeedFilter] = useState("ALL")
-  const [replayActive, setReplayActive] = useState(false)
-  const [togglingReplay, setTogglingReplay] = useState(false)
 
   // Firewall modal
   const [fwAddOpen, setFwAddOpen] = useState(false)
@@ -490,18 +603,16 @@ export default function SOCCommand() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [logsRes, alertsRes, fwRes, assetsRes, replayRes] = await Promise.all([
+      const [logsRes, alertsRes, fwRes, assetsRes] = await Promise.all([
         api.get("/logs/?limit=40"),
         api.get("/alerts/?limit=40"),
         api.get("/firewall/rules?active_only=true"),
         api.get("/assets/"),
-        api.get("/sim/replay/status").catch(() => ({ data: { enabled: false } }))
       ])
       setLogs(logsRes.data || [])
       setAlerts(alertsRes.data || [])
       setFwRules(fwRes.data || [])
       setAssets(assetsRes.data || [])
-      setReplayActive(replayRes.data?.enabled ?? false)
 
       const dist = {}
       ;(logsRes.data || []).forEach(l => { dist[l.attack_type] = (dist[l.attack_type] || 0) + 1 })
@@ -509,13 +620,6 @@ export default function SOCCommand() {
     } catch (err) { console.error("[SOCCommand]", err) }
   }, [])
 
-  const toggleReplayMode = async () => {
-    setTogglingReplay(true)
-    try {
-      const res = await api.post("/sim/replay/toggle")
-      setReplayActive(res.data?.enabled)
-    } catch (e) { console.error(e) } finally { setTogglingReplay(false) }
-  }
 
   useEffect(() => {
     if (!selectedAttackLogId) { setQigaActions([]); return }
@@ -538,9 +642,51 @@ export default function SOCCommand() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  // Real-time telemetry auto-sync whenever live threat, soc-event, or scenario finishes
   useEffect(() => {
-    if (sim.stage === "COMPLETE") setTimeout(() => fetchAll(), 1000)
+    let timer = null
+    const handleSync = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        fetchAll()
+      }, 400)
+    }
+
+    window.addEventListener("soc-event", handleSync)
+    window.addEventListener("mlp-prediction", handleSync)
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("soc-event", handleSync)
+      window.removeEventListener("mlp-prediction", handleSync)
+    }
+  }, [fetchAll])
+
+  // Auto-refresh when server-side auto-attack is running
+  // Poll every 5s while active so dashboard stays live without manual refresh
+  useEffect(() => {
+    // Refetch immediately when scenario count changes
+    if (sim.autoScenarioCount > 0) {
+      fetchAll()
+    }
+  }, [sim.autoScenarioCount, fetchAll])
+
+  useEffect(() => {
+    if (sim.stage === "COMPLETE") {
+      const timer = setTimeout(() => fetchAll(), 400)
+      return () => clearTimeout(timer)
+    }
   }, [sim.stage, fetchAll])
+
+  useEffect(() => {
+    if (!sim.autoRunning) return
+    const interval = setInterval(() => {
+      fetchAll()
+      // Also sync scenario count from backend so it updates live without page refresh
+      useSimulatorStore.getState().fetchStatus()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [sim.autoRunning, fetchAll])
 
   const handleLogout = () => { logout(); navigate("/login") }
 
@@ -654,13 +800,30 @@ export default function SOCCommand() {
           THREAT STATUS: {tl.label}
         </div>
 
-        {/* Replay Mode Controller Switch */}
-        <button onClick={toggleReplayMode} disabled={togglingReplay}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-bold transition-all cursor-pointer ${replayActive ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60" : "bg-amber-950/60 border-amber-500/50 text-amber-300 hover:bg-amber-900/60"}`}
-          title="Toggle background dataset replay simulation">
-          {replayActive ? <Radio size={12} className="text-emerald-400 pulse-dot" /> : <Pause size={12} />}
-          <span>{replayActive ? "AUTO-REPLAY: LIVE" : "AUTO-REPLAY: PAUSED"}</span>
+        {/* Auto Attack Controller Switch (Synchronized with Simulator) */}
+        <button
+          onClick={sim.toggleAutoAttack}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-bold transition-all cursor-pointer ${
+            sim.autoRunning
+              ? "bg-rose-950/80 border-rose-500 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.4)] animate-pulse-subtle hover:bg-rose-900/80"
+              : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white"
+          }`}
+          title={sim.autoRunning ? "Click to stop auto attack" : "Start continuous random attack scenarios (will not stop until clicked)"}
+        >
+          {sim.autoRunning ? (
+            <>
+              <Radio size={12} className="text-rose-400 pulse-dot" />
+              <span>AUTO ATTACK: LIVE ({sim.autoScenarioCount})</span>
+            </>
+          ) : (
+            <>
+              <Zap size={12} className="text-yellow-400" />
+              <span>START AUTO ATTACK</span>
+            </>
+          )}
         </button>
+
+
 
         {/* Live Metrics Counters */}
         <div className="hidden lg:flex items-center gap-3.5 ml-2 text-[11px] font-mono text-slate-300">

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAlertStore } from '../store'
 import { useSOCStore } from '../store/socEngine'
+import { useSimulatorStore } from '../store/simulatorStore'
 
 export function useWebSocket() {
   const wsRef = useRef(null)
@@ -419,7 +420,37 @@ export function useWebSocket() {
           }
 
           // =======================================================
-          // 6. UNKNOWN EVENT
+          // 6. AUTO ATTACK STATUS (Server-side auto-attack sync)
+          // =======================================================
+
+          if (msg.type === 'auto_attack_status') {
+            const data = msg.data || {}
+            console.log('[WS] Auto Attack Status:', data)
+            useSimulatorStore.getState().syncAutoStatus(data)
+
+            window.dispatchEvent(
+              new CustomEvent('soc-event', { detail: msg })
+            )
+            return
+          }
+
+          // =======================================================
+          // 7. CLEAR TELEMETRY (broadcast on reset)
+          // =======================================================
+
+          if (msg.type === 'clear_telemetry') {
+            console.log('[WS] Clear telemetry broadcast received')
+            useSimulatorStore.setState({
+              log: [],
+              stage: 'IDLE',
+              lastResult: null,
+              autoScenarioCount: 0,
+            })
+            return
+          }
+
+          // =======================================================
+          // 7. UNKNOWN EVENT
           // =======================================================
 
           console.log(

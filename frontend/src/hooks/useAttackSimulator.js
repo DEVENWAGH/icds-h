@@ -1,15 +1,30 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import api from '../utils/api'
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+const SCENARIO_KEYS = [
+  'hospital_breach',
+  'phishing_campaign',
+  'ransomware_kill_chain',
+  'apt_intrusion',
+  'data_exfiltration',
+  'ddos_wave',
+  'zero_day_outbreak',
+]
+
 export function useAttackSimulator() {
   const [stage, setStage] = useState('IDLE')
   const [lastResult, setLastResult] = useState(null)
   const [log, setLog] = useState([])
   const [loading, setLoading] = useState(false)
+  const [autoRunning, setAutoRunning] = useState(false)
+  const [currentScenario, setCurrentScenario] = useState(null)
+  const [autoScenarioCount, setAutoScenarioCount] = useState(0)
+
+  const autoAttackRef = useRef(false)
 
   const appendLog = (msg, type = 'info') => {
     const ts = new Date().toLocaleTimeString()
@@ -52,13 +67,16 @@ export function useAttackSimulator() {
       await delay(300)
       setStage('COMPLETE')
       appendLog(`[OK]  Pipeline complete. Attack log #${data.attack_log_id} created.`, 'success')
+      window.dispatchEvent(new CustomEvent('soc-event', { detail: { type: 'attack_completed', data } }))
     } catch (err) {
       setStage('ERROR')
       const msg = err?.response?.data?.detail || err.message || 'Unknown error'
       appendLog(`[ERR] Injection failed: ${msg}`, 'danger')
     } finally {
       setLoading(false)
-      setTimeout(() => setStage('IDLE'), 3000)
+      if (!autoAttackRef.current) {
+        setTimeout(() => setStage('IDLE'), 3000)
+      }
     }
   }, [loading])
 
@@ -77,14 +95,82 @@ export function useAttackSimulator() {
         else appendLog(`[OK]  ${r.attack_type} (${r.severity}) -> Log #${r.attack_log_id}`, 'success')
       })
       setStage('COMPLETE')
+      window.dispatchEvent(new CustomEvent('soc-event', { detail: { type: 'scenario_completed', data } }))
     } catch (err) {
       setStage('ERROR')
       appendLog(`[ERR] Scenario failed: ${err?.response?.data?.detail || err.message}`, 'danger')
     } finally {
       setLoading(false)
-      setTimeout(() => setStage('IDLE'), 3000)
+      if (!autoAttackRef.current) {
+        setTimeout(() => setStage('IDLE'), 3000)
+      }
     }
   }, [loading])
+
+  const startAutoAttack = useCallback(async () => {
+    if (autoAttackRef.current) return
+    autoAttackRef.current = true
+    setAutoRunning(true)
+    appendLog('[AUTO] >>> AUTO ATTACK MODE ACTIVATED (Continuous Random Scenarios)', 'warn')
+    appendLog('[AUTO] Running continuously until STOP is clicked. Engine will not stop on its own.', 'info')
+
+    let lastScenario = ''
+    while (autoAttackRef.current) {
+      const candidates = SCENARIO_KEYS.filter(s => s !== lastScenario)
+      const scenario = candidates[Math.floor(Math.random() * candidates.length)] || SCENARIO_KEYS[0]
+      lastScenario = scenario
+      setCurrentScenario(scenario)
+
+      appendLog(`[AUTO] Launching random scenario: ${scenario.replace(/_/g, ' ').toUpperCase()}...`, 'warn')
+      setStage('INJECTING')
+      try {
+        const res = await api.post(`/sim/scenario?scenario=${scenario}`)
+        const data = res.data
+        setLastResult(data)
+        setAutoScenarioCount(c => c + 1)
+        appendLog(`[SCN] Scenario finished: ${data.attacks_fired} attacks injected`, 'success')
+        data.results?.forEach(r => {
+          if (r.error) appendLog(`[ERR] ${r.attack_type}: ${r.error}`, 'danger')
+          else appendLog(`[OK]  ${r.attack_type} (${r.severity}) -> Log #${r.attack_log_id}`, 'success')
+        })
+        setStage('COMPLETE')
+        window.dispatchEvent(new CustomEvent('soc-event', { detail: { type: 'scenario_completed', data } }))
+      } catch (err) {
+        setStage('ERROR')
+        appendLog(`[ERR] Scenario execution error: ${err?.response?.data?.detail || err.message}`, 'danger')
+      }
+
+      if (!autoAttackRef.current) break
+
+      appendLog('[AUTO] Pausing 4s before next random scenario...', 'info')
+      await delay(4000)
+    }
+
+    setStage('IDLE')
+    setCurrentScenario(null)
+    appendLog('[AUTO] Auto attack mode halted.', 'info')
+  }, [])
+
+  const stopAutoAttack = useCallback(() => {
+    autoAttackRef.current = false
+    setAutoRunning(false)
+    setCurrentScenario(null)
+    appendLog('[AUTO] STOP requested. Auto attack halted by user.', 'warn')
+  }, [])
+
+  const toggleAutoAttack = useCallback(() => {
+    if (autoAttackRef.current) {
+      stopAutoAttack()
+    } else {
+      startAutoAttack()
+    }
+  }, [startAutoAttack, stopAutoAttack])
+
+  useEffect(() => {
+    return () => {
+      autoAttackRef.current = false
+    }
+  }, [])
 
   const clearLog = useCallback(() => setLog([]), [])
 
@@ -111,13 +197,16 @@ export function useAttackSimulator() {
       await delay(300)
       setStage('COMPLETE')
       appendLog(`[OK]  Zero-day surfaced in Live Threat Feed. Log #${data.attack_log_id}.`, 'success')
+      window.dispatchEvent(new CustomEvent('soc-event', { detail: { type: 'anomaly_completed', data } }))
     } catch (err) {
       setStage('ERROR')
       const msg = err?.response?.data?.detail || err.message || 'Unknown error'
       appendLog(`[ERR] Zero-day injection failed: ${msg}`, 'danger')
     } finally {
       setLoading(false)
-      setTimeout(() => setStage('IDLE'), 3000)
+      if (!autoAttackRef.current) {
+        setTimeout(() => setStage('IDLE'), 3000)
+      }
     }
   }, [loading])
 
@@ -136,15 +225,34 @@ export function useAttackSimulator() {
       setLastResult(data)
       setStage('COMPLETE')
       appendLog(`[CSV] Processed ${data.rows_processed}/${data.total_rows} events (${data.dataset_detected})`, 'success')
+      window.dispatchEvent(new CustomEvent('soc-event', { detail: { type: 'csv_completed', data } }))
     } catch (err) {
       setStage('ERROR')
       const msg = err?.response?.data?.detail || err.message || 'CSV upload failed'
       appendLog(`[ERR] CSV upload error: ${msg}`, 'danger')
     } finally {
       setLoading(false)
-      setTimeout(() => setStage('IDLE'), 3000)
+      if (!autoAttackRef.current) {
+        setTimeout(() => setStage('IDLE'), 3000)
+      }
     }
   }, [loading])
 
-  return { stage, lastResult, log, loading, fireAttack, fireScenario, fireAnomaly, uploadCsv, clearLog }
+  return {
+    stage,
+    lastResult,
+    log,
+    loading,
+    autoRunning,
+    currentScenario,
+    autoScenarioCount,
+    fireAttack,
+    fireScenario,
+    fireAnomaly,
+    uploadCsv,
+    clearLog,
+    startAutoAttack,
+    stopAutoAttack,
+    toggleAutoAttack,
+  }
 }
