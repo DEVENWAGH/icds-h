@@ -12,7 +12,6 @@ import {
 } from "recharts"
 import { useAuthStore, useAlertStore, useIncidentStore } from "../store"
 import { useSOCStore } from "../store/socEngine"
-import { useWebSocket } from "../hooks/useWebSocket"
 import { useSimulatorStore } from "../store/simulatorStore"
 import api from "../utils/api"
 import { useNavigate } from "react-router-dom"
@@ -564,7 +563,6 @@ export default function SOCCommand() {
   const { unreadCount, liveMetrics, liveThreats } = useAlertStore()
   const { selectedAttackLogId, setSelectedAttackLogId } = useIncidentStore()
   const navigate = useNavigate()
-  useWebSocket()
 
   // Use server-side Zustand store instead of client-side hook
   // so auto-attack persists across page navigation and tab switches

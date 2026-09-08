@@ -323,12 +323,13 @@ export function useWebSocket() {
               }
             )
 
-            // Update SOC store with resolved status
+            // Update SOC store with containment status
+            // (not RESOLVED — attack should remain visible in the pipeline)
             useSOCStore
               .getState()
               .updateLifecycle(
                 data.attack_log_id,
-                'RESOLVED'
+                data.status || 'CONTAINMENT'
               )
 
             window.dispatchEvent(

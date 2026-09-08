@@ -736,9 +736,20 @@ async def process_security_event(
                 completed_at=datetime.utcnow(),
             )
             db.add(recovery)
-            attack_log.status = "RESOLVED"
-            attack_log.resolved_at = datetime.utcnow()
+            # Keep status at CONTAINMENT so the attack remains visible
+            # in the frontend pipeline. Only explicit analyst action
+            # or the mitigate endpoint should mark as RESOLVED.
+            attack_log.status = "CONTAINMENT"
             db.commit()
+
+            # Broadcast lifecycle update so frontend shows containment
+            await manager.broadcast({
+                "type": "lifecycle_update",
+                "data": {
+                    "attack_log_id": attack_log_id,
+                    "status": "CONTAINMENT",
+                },
+            })
 
         return {
             "success": True,
@@ -808,76 +819,33 @@ async def continuous_monitoring_service():
 # =============================================================================
 
 async def lifecycle_manager_service():
+    """
+    Lifecycle manager.
+
+    IMPORTANT: This service no longer auto-advances DETECTED → ANALYZING.
+    In a detection system, the status should remain DETECTED until an
+    analyst explicitly acts (approves a recommendation, mitigates, etc.).
+
+    The lifecycle transitions are:
+      DETECTED   → set by the MLP pipeline on creation
+      ANALYZING  → set only when analyst explicitly reviews
+      CONTAINMENT → set when a QIGA recommendation is approved
+      RECOVERY   → set when recovery action starts
+      RESOLVED   → set when recovery completes or analyst mitigates
+    """
 
     while True:
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
 
         try:
 
             db = SessionLocal()
 
             try:
-
-                cutoff = (
-                    datetime.utcnow()
-                    - timedelta(
-                        seconds=5
-                    )
-                )
-
-                detected_logs = (
-                    db.query(
-                        models.AttackLog
-                    )
-                    .filter(
-                        models.AttackLog.status
-                        == "DETECTED",
-
-                        models.AttackLog.created_at
-                        <= cutoff,
-                    )
-                    .all()
-                )
-
-                for log in detected_logs:
-
-                    log.status = "ANALYZING"
-
-                    incident = (
-                        db.query(
-                            models.Incident
-                        )
-                        .filter(
-                            models.Incident.attack_id
-                            == log.id
-                        )
-                        .first()
-                    )
-
-                    if incident:
-                        incident.status = (
-                            "ANALYZING"
-                        )
-
-                    await manager.broadcast(
-                        {
-                            "type":
-                                "lifecycle_update",
-
-                            "data": {
-
-                                "attack_log_id":
-                                    log.id,
-
-                                "status":
-                                    "ANALYZING",
-                            },
-                        }
-                    )
-
-                if detected_logs:
-                    db.commit()
+                # No auto-advancement. Status stays at DETECTED
+                # until explicit analyst action.
+                pass
 
             finally:
 

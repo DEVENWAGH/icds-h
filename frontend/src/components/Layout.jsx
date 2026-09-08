@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { Outlet, NavLink, useNavigate, Navigate } from 'react-router-dom'
 import { useAuthStore, useAlertStore } from '../store'
-import { useWebSocket } from '../hooks/useWebSocket'
 import {
   Shield, Activity, BarChart3, Bell, FileText,
   Eye, Brain, Zap, Settings, LogOut, Menu, ChevronRight, User, AlertOctagon, Cpu, Database,
@@ -30,7 +29,6 @@ export default function Layout() {
   const { user, logout } = useAuthStore()
   const { unreadCount, liveMetrics, liveThreats } = useAlertStore()
   const navigate = useNavigate()
-  useWebSocket()
 
   const handleLogout = () => { logout(); navigate('/login') }
 

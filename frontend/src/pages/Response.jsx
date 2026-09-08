@@ -142,6 +142,9 @@ export default function Response() {
    * -------------------------------------------------------
    * ACTIVE REAL THREATS
    * -------------------------------------------------------
+   * Only show unresolved threats in the active queue.
+   * Attacks now correctly stay at DETECTED status
+   * (lifecycle auto-advance is disabled).
    */
 
   const activeThreats = incidents

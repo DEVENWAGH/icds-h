@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store'
 import { useSOCStore } from './store/socEngine'
+import { useWebSocket } from './hooks/useWebSocket'
 import Layout from './components/Layout'
 import Landing from './pages/Landing'
  import Login from './pages/Login'
@@ -31,7 +32,25 @@ function PrivateRoute({ children }) {
 
 function SOCEngineBootstrap() {
   const init = useSOCStore((s) => s.init)
+  const refreshIncidents = useSOCStore((s) => s.refreshIncidents)
+
+  /*
+   * Single centralized WebSocket connection for all authenticated routes.
+   * Previously this was duplicated in both Layout.jsx and SOCCommand.jsx.
+   */
+  useWebSocket()
+
   useEffect(() => { init() }, [init])
+
+  /*
+   * Always refresh incidents from backend on mount.
+   * This ensures fresh data when navigating between tabs
+   * even if sessionStorage has stale data.
+   */
+  useEffect(() => {
+    refreshIncidents()
+  }, [refreshIncidents])
+
   return null
 }
 
