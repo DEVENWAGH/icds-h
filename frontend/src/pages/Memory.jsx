@@ -168,6 +168,9 @@ export default function MemoryPage() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+                          <span className="text-xs font-mono font-bold text-cyber-cyan">
+                            #{entry.attack_log_id || entry.attack_id || entry.id || i + 1}
+                          </span>
                           <span className="text-xs font-mono font-bold text-white">{entry.attack_type}</span>
                           <span className="text-xs font-mono px-1.5 py-0.5 rounded"
                             style={{ background: `${color}20`, color, border: `1px solid ${color}40` }}>
@@ -263,7 +266,9 @@ export default function MemoryPage() {
             <tbody>
               {entries.map(e => (
                 <tr key={e.id} className="border-b border-cyber-border/30 hover:bg-white/[0.04] transition-colors">
-                  <td className="py-2 pr-3 text-cyber-cyan">{e.attack_log_id}</td>
+                  <td className="py-2 pr-3 font-mono font-bold text-cyber-cyan">
+                    #{e.attack_log_id || e.id}
+                  </td>
                   <td className="py-2 pr-3 font-bold" style={{ color: TYPE_COLORS[e.attack_type] || '#888' }}>{e.attack_type}</td>
                   <td className="py-2 pr-3 text-gray-400">{e.severity}</td>
                   <td className="py-2 pr-3 text-white">{e.risk_score?.toFixed(1)}</td>

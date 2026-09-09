@@ -96,13 +96,32 @@ export const useAlertStore = create(
             metrics || {},
         })
       },
+
+      /*
+       * Reset the live threat feed entirely (e.g. on simulator clear).
+       */
+      clearLiveThreats: () => {
+        set({
+          liveThreats: [],
+          unreadCount: 0,
+        })
+      },
     }),
     {
       name: 'icds-alerts',
       storage: {
         getItem: (name) => {
           const str = sessionStorage.getItem(name)
-          return str ? JSON.parse(str) : null
+          if (!str) return null
+          try {
+            const parsed = JSON.parse(str)
+            if (parsed && parsed.state) {
+              parsed.state.liveThreats = []
+            }
+            return parsed
+          } catch {
+            return null
+          }
         },
         setItem: (name, value) => {
           sessionStorage.setItem(name, JSON.stringify(value))
@@ -112,7 +131,6 @@ export const useAlertStore = create(
         },
       },
       partialize: (state) => ({
-        liveThreats: state.liveThreats,
         liveMetrics: state.liveMetrics,
         unreadCount: state.unreadCount,
       }),

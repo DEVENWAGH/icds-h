@@ -163,15 +163,17 @@ def objective_function(
     combined_effectiveness = 1 - np.prod([1 - a["effectiveness"] for a in selected])
     combined_cost = sum(a["cost"] for a in selected) / (3 * len(actions))
 
-    # Effectiveness bonus: high effectiveness reduces F
-    effectiveness_bonus = combined_effectiveness * 0.4
+    # Risk severity multiplier (normalized)
+    risk_factor = max(1.0, risk_score) / 25.0
 
-    # Risk severity multiplier
-    risk_mult = risk_score / 100.0
+    # Residual unmitigated threat impact
+    unmitigated_risk = (1.0 - combined_effectiveness) * risk_factor
 
-    F = (alpha * combined_downtime + beta * combined_data_loss + gamma * combined_cost) * risk_mult
-    F = F - effectiveness_bonus
-    F = max(0, F)  # Cannot be negative
+    # Operational disruption and deployment cost
+    operational_impact = (alpha * combined_downtime + beta * combined_data_loss + gamma * combined_cost) * 1.5
+
+    F = unmitigated_risk + operational_impact
+    F = max(0.05, F)
     return round(F, 6), True
 
 
@@ -328,7 +330,7 @@ class QIGAOptimizer:
                 best_fitness = gen_best_f
                 best_chromosome = chromosomes[gen_best_idx]
 
-            convergence.append(round(best_fitness, 4))
+            convergence.append(round(float(best_fitness), 4))
 
             # Update Q-population via rotation gates
             for i in range(self.pop_size):

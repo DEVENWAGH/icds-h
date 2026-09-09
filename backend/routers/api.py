@@ -326,6 +326,68 @@ def mitigate_attack_log(
     )
 
 
+@logs_router.patch("/{log_id}/acknowledge")
+def acknowledge_attack_log(
+    log_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """Analyst acknowledgement: acknowledge the attack alerts and mark status as ACKNOWLEDGED."""
+    log = (
+        db.query(models.AttackLog)
+        .filter(models.AttackLog.id == log_id)
+        .first()
+    )
+    if not log:
+        raise HTTPException(status_code=404, detail="AttackLog not found")
+
+    now = datetime.utcnow()
+    log.status = "ACKNOWLEDGED"
+
+    incident = (
+        db.query(models.Incident)
+        .filter(models.Incident.attack_id == log.id)
+        .first()
+    )
+    if incident:
+        incident.status = "ACKNOWLEDGED"
+        if not incident.assigned_to:
+            incident.assigned_to = current_user.id
+
+    alerts = (
+        db.query(models.Alert)
+        .filter(models.Alert.attack_log_id == log.id)
+        .all()
+    )
+    for alert in alerts:
+        alert.is_acknowledged = True
+        alert.acknowledged_by = current_user.id
+        alert.acknowledged_at = now
+
+    db.commit()
+
+    try:
+        from ws_manager import broadcast_threadsafe
+        broadcast_threadsafe({
+            "type": "lifecycle_update",
+            "data": {
+                "attack_log_id": log.id,
+                "status": "ACKNOWLEDGED",
+                "acknowledged_by": current_user.full_name or current_user.email,
+            },
+        })
+    except Exception as err:
+        print(f"[ACKNOWLEDGE] websocket broadcast skipped: {err}")
+
+    return {
+        "success": True,
+        "attack_log_id": log.id,
+        "status": "ACKNOWLEDGED",
+        "acknowledged_by": current_user.full_name or current_user.email,
+        "alerts_acknowledged": len(alerts),
+    }
+
+
 @logs_router.patch("/{log_id}/contain")
 def contain_attack_log(
     log_id: int,
@@ -4480,6 +4542,8 @@ def get_memory_history(
         {
             "id":
                 entry.id,
+            "attack_log_id":
+                entry.attack_log_id or entry.id,
             "attack_type":
                 entry.attack_type,
             "severity":
@@ -4493,7 +4557,7 @@ def get_memory_history(
             "success":
                 entry.success,
             "recorded_at":
-                entry.recorded_at.isoformat(),
+                entry.recorded_at.isoformat() if entry.recorded_at else "",
         }
         for entry in entries
     ]

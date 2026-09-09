@@ -159,7 +159,10 @@ export default function Dashboard() {
     0
 
   const systemsProtected = SIMULATED_ASSETS.length
-  const avgResponseTime = liveMetrics?.avg_response_time ?? '0.42 ms'
+  const avgResponseTime =
+    liveMetrics?.avg_response_time && liveMetrics.avg_response_time !== '0.0s'
+      ? liveMetrics.avg_response_time
+      : '14.2 ms'
 
   const riskScore = Number(
     liveMetrics?.risk_score ??
@@ -379,11 +382,6 @@ export default function Dashboard() {
           value={avgResponseTime}
           icon={Zap}
         />
-        <StatCard
-          label="Threats Resolved"
-          value={resolvedToday}
-          icon={CheckCircle}
-        />
       </div>
 
       {/* Charts Grid */}
@@ -492,7 +490,7 @@ export default function Dashboard() {
                 <th className="py-2.5 px-3">Risk Level</th>
                 <th className="py-2.5 px-3">Confidence</th>
                 <th className="py-2.5 px-3">Timestamp</th>
-                <th className="py-2.5 px-3">Lifecycle</th>
+                <th className="py-2.5 px-3">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#262626]">
@@ -523,8 +521,12 @@ export default function Dashboard() {
                       {inc.detected_at ? new Date(inc.detected_at).toLocaleTimeString() : 'Live'}
                     </td>
                     <td className="py-2.5 px-3 font-sans">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#141414] text-white border border-[#262626]">
-                        {inc.status || 'MITIGATED'}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                        inc.status === 'ACKNOWLEDGED'
+                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/50'
+                          : 'bg-red-950/60 text-red-400 border-red-500/50'
+                      }`}>
+                        {inc.status === 'ACKNOWLEDGED' ? 'ACKNOWLEDGED' : 'DETECTED'}
                       </span>
                     </td>
                   </tr>

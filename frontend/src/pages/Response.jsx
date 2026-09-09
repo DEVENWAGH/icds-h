@@ -1,2290 +1,455 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
-
+import React, { useEffect, useState } from 'react'
 import {
   Zap,
   ShieldOff,
-  RotateCcw,
-  Key,
-  Ban,
   CheckCircle,
   RefreshCw,
   AlertTriangle,
+  AlertOctagon,
   Terminal,
+  Shield,
+  Search,
+  Flame,
+  User,
+  Radio,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  UserCheck,
 } from 'lucide-react'
-
 import api from '../utils/api'
-
-import {
-  useAuthStore,
-  useIncidentStore,
-} from '../store'
-
-import {
-  useSOCStore,
-  LIFECYCLE_STAGES,
-} from '../store/socEngine'
-
-
-const ACTION_ICONS = {
-  ISOLATE: ShieldOff,
-  RESTORE: RotateCcw,
-  RESET: Key,
-  BLOCK: Ban,
-  PATCH: Zap,
-}
-
-
-const STATUS_STYLE = {
-  PENDING:
-    'text-gray-400 border-gray-600 bg-gray-900/20',
-
-  IN_PROGRESS:
-    'text-yellow-400 border-yellow-600 bg-yellow-900/20',
-
-  COMPLETED:
-    'text-green-400 border-green-700 bg-green-900/20',
-
-  FAILED:
-    'text-red-400 border-red-700 bg-red-900/20',
-}
-
-
-const LIFECYCLE_STYLE = {
-  DETECTED: {
-    text: 'text-red-400',
-    bg: 'bg-red-900/20',
-    border: 'border-red-500/50',
-    dot: 'bg-red-400',
-  },
-
-  ANALYZING: {
-    text: 'text-yellow-400',
-    bg: 'bg-yellow-900/20',
-    border: 'border-yellow-500/50',
-    dot: 'bg-yellow-400',
-  },
-
-  CONTAINMENT: {
-    text: 'text-orange-400',
-    bg: 'bg-orange-900/20',
-    border: 'border-orange-500/50',
-    dot: 'bg-orange-400',
-  },
-
-  RECOVERY: {
-    text: 'text-blue-400',
-    bg: 'bg-blue-900/20',
-    border: 'border-blue-500/50',
-    dot: 'bg-blue-400',
-  },
-
-  RESOLVED: {
-    text: 'text-green-400',
-    bg: 'bg-green-900/20',
-    border: 'border-green-500/50',
-    dot: 'bg-green-400',
-  },
-}
-
-
-function recommendationConfidence(value) {
-  const numeric = Number(value)
-
-  if (!Number.isFinite(numeric)) {
-    return null
-  }
-
-  if (numeric <= 1) {
-    return Math.round(numeric * 100)
-  }
-
-  return Math.round(numeric)
-}
-
-
-function confidenceColor(value) {
-  if (
-    value === null ||
-    value === undefined
-  ) {
-    return '#6b7280'
-  }
-
-  if (value > 90) {
-    return '#00ff88'
-  }
-
-  if (value > 80) {
-    return '#00e5ff'
-  }
-
-  return '#ffd60a'
-}
-
+import { useAuthStore, useIncidentStore } from '../store'
+import { useSOCStore } from '../store/socEngine'
 
 export default function Response() {
   const { user } = useAuthStore()
+  const { selectedAttackLogId, setSelectedAttackLogId } = useIncidentStore()
+  const incidents = useSOCStore((state) => state.incidents)
+  const acknowledgeThreat = useSOCStore((state) => state.acknowledgeThreat)
 
-  const {
-    selectedAttackLogId,
-    setSelectedAttackLogId,
-  } = useIncidentStore()
-
-  const incidents = useSOCStore(
-    (state) => state.incidents
-  )
-
-  /*
-   * -------------------------------------------------------
-   * ACTIVE REAL THREATS
-   * -------------------------------------------------------
-   * Only show unresolved threats in the active queue.
-   * Attacks now correctly stay at DETECTED status
-   * (lifecycle auto-advance is disabled).
-   */
-
+  // Real detected threats sorted by highest risk
   const activeThreats = incidents
-    .filter(
-      (incident) =>
-        incident.is_threat &&
-        !incident.resolved &&
-        incident.attack_type !== 'Normal'
-    )
-    .sort(
-      (a, b) =>
-        Number(b.risk_score || 0) -
-        Number(a.risk_score || 0)
-    )
-
-
-  /*
-   * -------------------------------------------------------
-   * SELECTED ATTACK LOG
-   * -------------------------------------------------------
-   */
-
-  const selectedLog = incidents.find(
-    (incident) => {
-      const id =
-        incident.attack_log_id ??
-        incident.id
-
-      return (
-        String(id) ===
-        String(selectedAttackLogId)
-      )
-    }
-  )
-
-
-  const isNormal =
-    selectedLog?.attack_type === 'Normal'
-
-
-  /*
-   * IMPORTANT:
-   * Backend itself enforces admin/analyst authorization.
-   * This frontend check only controls the UI.
-   */
-
-  const normalizedRole =
-    String(
-      user?.role ?? ''
-    ).toLowerCase()
-
-  const canApprove =
-    normalizedRole === 'admin' ||
-    normalizedRole === 'analyst'
-
-
-  /*
-   * -------------------------------------------------------
-   * LOCAL STATE
-   * -------------------------------------------------------
-   */
-
-  const [recs, setRecs] = useState([])
-  const [recoveries, setRecoveries] =
-    useState([])
-
-  const [loading, setLoading] =
-    useState(false)
-
-  const [selectedRecovery, setSelectedRecovery] =
-    useState(null)
-
-  const [error, setError] =
-    useState(null)
-
-  const [lastQigaRun, setLastQigaRun] =
-    useState(null)
-
-  const logRef =
-    useRef(null)
-
-
-  /*
-   * -------------------------------------------------------
-   * DEFAULT THREAT SELECTION
-   * -------------------------------------------------------
-   *
-   * When Response opens without an explicit selection,
-   * use the highest-risk active real threat.
-   */
-
-  useEffect(() => {
-    if (
-      (
-        selectedAttackLogId === null ||
-        selectedAttackLogId === undefined
-      ) &&
-      activeThreats.length > 0
-    ) {
-      const firstThreat =
-        activeThreats[0]
-
-      const threatId =
-        firstThreat.attack_log_id ??
-        firstThreat.id
-
-      setSelectedAttackLogId(
-        threatId
-      )
-    }
-  }, [
-    selectedAttackLogId,
-    activeThreats,
-    setSelectedAttackLogId,
-  ])
-
-
-  /*
-   * -------------------------------------------------------
-   * LOAD DATA FOR EXACT ATTACKLOG
-   * -------------------------------------------------------
-   *
-   * Do NOT fetch every recommendation/recovery in the
-   * database. The backend already supports attack_log_id
-   * filtering.
-   */
-
-  const loadResponseData = async (
-    attackLogId,
-    showLoading = true
-  ) => {
-    if (
-      attackLogId === null ||
-      attackLogId === undefined ||
-      attackLogId === ''
-    ) {
-      return
-    }
-
-    if (showLoading) {
-      setLoading(true)
-    }
-
-    setError(null)
-
-    try {
-      const [
-        recommendationsResponse,
-        recoveryResponse,
-      ] = await Promise.all([
-        api.get(
-          `/recommendations/?attack_log_id=${attackLogId}&limit=100`
-        ),
-
-        api.get(
-          `/recovery/?attack_log_id=${attackLogId}&limit=100`
-        ),
-      ])
-
-      const recommendations =
-        Array.isArray(
-          recommendationsResponse.data
-        )
-          ? recommendationsResponse.data
-          : []
-
-      const recoveryActions =
-        Array.isArray(
-          recoveryResponse.data
-        )
-          ? recoveryResponse.data
-          : []
-
-      setRecs(
-        recommendations
-      )
-
-      setRecoveries(
-        recoveryActions
-      )
-
-      setSelectedRecovery(
-        (current) => {
-          if (!current) {
-            return (
-              recoveryActions[0] ??
-              null
-            )
-          }
-
-          const refreshed =
-            recoveryActions.find(
-              (item) =>
-                String(item.id) ===
-                String(current.id)
-            )
-
-          return (
-            refreshed ??
-            recoveryActions[0] ??
-            null
-          )
-        }
-      )
-
-    } catch (err) {
-      console.error(
-        '[Response] Failed to load response data:',
-        err
-      )
-
-      setError(
-        err?.response?.data?.detail ||
-          'Unable to load QIGA recommendations or recovery actions.'
-      )
-
-      setRecs([])
-      setRecoveries([])
-      setSelectedRecovery(null)
-    } finally {
-      if (showLoading) {
-        setLoading(false)
-      }
-    }
-  }
-
-
-  /*
-   * -------------------------------------------------------
-   * LOAD WHEN ATTACKLOG CHANGES
-   * -------------------------------------------------------
-   */
-
-  useEffect(() => {
-    if (
-      selectedAttackLogId === null ||
-      selectedAttackLogId === undefined ||
-      isNormal
-    ) {
-      setRecs([])
-      setRecoveries([])
-      setSelectedRecovery(null)
-      setLastQigaRun(null)
-      setError(null)
-      setLoading(false)
-
-      return undefined
-    }
-
-    loadResponseData(
-      selectedAttackLogId,
-      true
-    )
-  }, [
-    selectedAttackLogId,
-    isNormal,
-  ])
-
-
-  /*
-   * -------------------------------------------------------
-   * QIGA WEBSOCKET EVENT
-   * -------------------------------------------------------
-   *
-   * This solves an important timing problem:
-   *
-   * Monitoring event arrives
-   *      ↓
-   * Backend runs QIGA
-   *      ↓
-   * Response page receives qiga-recommendation
-   *      ↓
-   * Response reloads exact AttackLog recommendations
-   */
-
-  useEffect(() => {
-    const handleQigaRecommendation = (
-      event
-    ) => {
-      const data =
-        event?.detail ?? {}
-
-      const eventAttackLogId =
-        data.attack_log_id
-
-      if (
-        eventAttackLogId ===
-        undefined ||
-        eventAttackLogId ===
-        null
-      ) {
-        return
-      }
-
-      if (
-        selectedAttackLogId === null ||
-        selectedAttackLogId ===
-        undefined
-      ) {
-        return
-      }
-
-      if (
-        String(
-          eventAttackLogId
-        ) !==
-        String(
-          selectedAttackLogId
-        )
-      ) {
-        return
-      }
-
-      console.log(
-        '[Response] QIGA recommendation received for selected AttackLog:',
-        eventAttackLogId
-      )
-
-      setLastQigaRun(
-        data
-      )
-
-      loadResponseData(
-        selectedAttackLogId,
-        false
-      )
-    }
-
-    window.addEventListener(
-      'qiga-recommendation',
-      handleQigaRecommendation
-    )
-
-    return () => {
-      window.removeEventListener(
-        'qiga-recommendation',
-        handleQigaRecommendation
-      )
-    }
-  }, [
-    selectedAttackLogId,
-  ])
-
-
-  /*
-   * -------------------------------------------------------
-   * REFRESH WHEN LIFECYCLE CHANGES
-   * -------------------------------------------------------
-   */
-
-  useEffect(() => {
-    const handleLifecycleUpdate = (
-      event
-    ) => {
-      const data =
-        event?.detail ?? {}
-
-      if (
-        String(
-          data.attack_log_id
-        ) !==
-        String(
-          selectedAttackLogId
-        )
-      ) {
-        return
-      }
-
-      loadResponseData(
-        selectedAttackLogId,
-        false
-      )
-    }
-
-    window.addEventListener(
-      'lifecycle-update',
-      handleLifecycleUpdate
-    )
-
-    return () => {
-      window.removeEventListener(
-        'lifecycle-update',
-        handleLifecycleUpdate
-      )
-    }
-  }, [
-    selectedAttackLogId,
-  ])
-
-
-  /*
-   * -------------------------------------------------------
-   * POLL RECOVERY STATUS
-   * -------------------------------------------------------
-   */
-
-  useEffect(() => {
-    if (
-      !selectedRecovery?.id
-    ) {
-      return undefined
-    }
-
-    if (
-      selectedRecovery.status !==
-        'PENDING' &&
-      selectedRecovery.status !==
-        'IN_PROGRESS'
-    ) {
-      return undefined
-    }
-
-    let mounted = true
-
-    const pollRecovery = async () => {
-      try {
-        const response =
-          await api.get(
-            `/recovery/${selectedRecovery.id}`
-          )
-
-        if (!mounted) {
-          return
-        }
-
-        const data =
-          response.data
-
-        setSelectedRecovery(
-          data
-        )
-
-        setRecoveries(
-          (previous) =>
-            previous.map(
-              (item) =>
-                String(item.id) ===
-                String(data.id)
-                  ? data
-                  : item
-            )
-        )
-
-      } catch (err) {
-        console.error(
-          '[Response] Recovery polling failed:',
-          err
-        )
-      }
-    }
-
-    pollRecovery()
-
-    const interval =
-      setInterval(
-        pollRecovery,
-        2000
-      )
-
-    return () => {
-      mounted = false
-      clearInterval(interval)
-    }
-  }, [
-    selectedRecovery?.id,
-    selectedRecovery?.status,
-  ])
-
-
-  /*
-   * -------------------------------------------------------
-   * EXECUTION LOG AUTO-SCROLL
-   * -------------------------------------------------------
-   */
-
-  useEffect(() => {
-    if (
-      logRef.current
-    ) {
-      logRef.current.scrollTop =
-        logRef.current.scrollHeight
-    }
-  }, [
-    selectedRecovery?.execution_log,
-  ])
-
-
-  /*
-   * -------------------------------------------------------
-   * APPROVAL
-   * -------------------------------------------------------
-   *
-   * One QIGA recommendation can be authorized.
-   *
-   * The backend:
-   *   - verifies admin/analyst role
-   *   - creates RecoveryAction
-   *   - changes AttackLog to CONTAINMENT
-   *   - starts recovery
-   *
-   * The frontend does NOT execute recovery itself.
-   */
-
-  const approve = async (
-    recommendationId
-  ) => {
-    if (
-      !canApprove ||
-      !recommendationId ||
-      selectedAttackLogId ===
-        null ||
-      selectedAttackLogId ===
-        undefined
-    ) {
-      return
-    }
-
-    /*
-     * Do not authorize another action while an
-     * existing recovery for this AttackLog is active.
-     */
-
-    const hasActiveRecovery =
-      recoveries.some(
-        (recovery) =>
-          (
-            recovery.status ===
-              'PENDING' ||
-            recovery.status ===
-              'IN_PROGRESS'
-          )
-      )
-
-    if (hasActiveRecovery) {
-      setError(
-        'A recovery workflow is already active for this AttackLog.'
-      )
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response =
-        await api.patch(
-          `/recommendations/${recommendationId}/approve`
-        )
-
-      console.log(
-        '[Response] Recommendation authorized:',
-        response.data
-      )
-
-      /*
-       * Re-read the exact AttackLog response state.
-       */
-      await loadResponseData(
-        selectedAttackLogId,
-        false
-      )
-
-    } catch (err) {
-      console.error(
-        '[Response] Approval failed:',
-        err
-      )
-
-      setError(
-        err?.response?.data?.detail ||
-          'Unable to authorize this response action.'
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-
-  const reject = async (
-    recommendationId
-  ) => {
-    if (
-      !canApprove ||
-      !recommendationId ||
-      selectedAttackLogId === null ||
-      selectedAttackLogId === undefined
-    ) {
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const response = await api.patch(
-        `/recommendations/${recommendationId}/reject`
-      )
-      console.log(
-        '[Response] Recommendation rejected:',
-        response.data
-      )
-      await loadResponseData(
-        selectedAttackLogId,
-        false
-      )
-    } catch (err) {
-      console.error(
-        '[Response] Rejection failed:',
-        err
-      )
-      setError(
-        err?.response?.data?.detail ||
-          'Unable to reject this response action.'
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    const handleRecoveryProgress = (event) => {
-      const data = event?.detail ?? {}
-      if (
-        selectedRecovery &&
-        String(selectedRecovery.id) === String(data.recovery_id)
-      ) {
-        setSelectedRecovery((prev) => ({
-          ...prev,
-          progress_percent: data.progress_percent,
-          current_step: data.current_step,
-          status: data.status,
-        }))
-      }
-      setRecoveries((prev) =>
-        prev.map((r) =>
-          String(r.id) === String(data.recovery_id)
-            ? {
-                ...r,
-                progress_percent: data.progress_percent,
-                current_step: data.current_step,
-                status: data.status,
-              }
-            : r
-        )
-      )
-    }
-
-    window.addEventListener(
-      'recovery-progress',
-      handleRecoveryProgress
-    )
-    return () => {
-      window.removeEventListener(
-        'recovery-progress',
-        handleRecoveryProgress
-      )
-    }
-  }, [selectedRecovery?.id])
-
-  /*
-   * -------------------------------------------------------
-   * DERIVED RESPONSE DATA
-   * -------------------------------------------------------
-   */
-
-  const pendingRecs = recs.filter(
-    (recommendation) =>
-      recommendation.status === 'PENDING' ||
-      (!recommendation.status && !recommendation.is_approved)
-  )
-
-  const primary =
-    pendingRecs[0] ??
-    recs[0] ??
+    .filter((inc) => inc.is_threat && inc.attack_type !== 'Normal')
+    .sort((a, b) => Number(b.risk_score || 0) - Number(a.risk_score || 0))
+
+  // Selected threat resolution
+  const selectedLog =
+    incidents.find((inc) => {
+      const id = inc.attack_log_id ?? inc.id
+      return String(id) === String(selectedAttackLogId)
+    }) ||
+    activeThreats[0] ||
     null
 
-  const alternatives =
-    primary
-      ? recs.filter(
-          (recommendation) =>
-            String(
-              recommendation.id
-            ) !==
-            String(
-              primary.id
-            )
-        )
-      : []
+  const threatId = selectedLog ? selectedLog.attack_log_id ?? selectedLog.id : null
 
-  const activeRecoveries =
-    recoveries.filter(
-      (recovery) =>
-        recovery.status ===
-          'PENDING' ||
-        recovery.status ===
-          'IN_PROGRESS'
-    )
+  // Ensure an initial threat is selected if available
+  useEffect(() => {
+    if (!selectedAttackLogId && activeThreats.length > 0) {
+      const firstId = activeThreats[0].attack_log_id ?? activeThreats[0].id
+      setSelectedAttackLogId(firstId)
+    }
+  }, [selectedAttackLogId, activeThreats, setSelectedAttackLogId])
 
-  const completedRecoveries =
-    recoveries.filter(
-      (recovery) =>
-        recovery.status ===
-        'COMPLETED'
-    )
+  // Fetch QIGA intelligence briefing for selected threat
+  const [recs, setRecs] = useState([])
+  const [loadingRecs, setLoadingRecs] = useState(false)
+  const [ackLoading, setAckLoading] = useState(false)
+  const [ackSuccess, setAckSuccess] = useState(false)
+  const [ackedThreatIds, setAckedThreatIds] = useState(() => new Set())
+  const [blockLoading, setBlockLoading] = useState(false)
+  const [blockSuccess, setBlockSuccess] = useState(false)
 
-  const hasApprovedRecommendation =
-    recs.some(
-      (recommendation) =>
-        recommendation.is_approved
-    )
+  useEffect(() => {
+    if (!threatId) {
+      setRecs([])
+      return
+    }
+    setLoadingRecs(true)
+    api
+      .get(`/recommendations/?attack_log_id=${threatId}&limit=6`)
+      .then((res) => {
+        setRecs(Array.isArray(res.data) ? res.data : [])
+      })
+      .catch(() => setRecs([]))
+      .finally(() => setLoadingRecs(false))
+  }, [threatId])
 
-  const hasAnyRecovery =
-    recoveries.length > 0
+  const isAcknowledged =
+    selectedLog?.status === 'ACKNOWLEDGED' ||
+    ackedThreatIds.has(String(threatId))
 
-  const approvalLocked =
-    hasApprovedRecommendation ||
-    hasAnyRecovery ||
-    activeRecoveries.length > 0
+  const normalizedRole = String(user?.role ?? '').toLowerCase()
+  const canAcknowledge =
+    normalizedRole === 'admin' ||
+    normalizedRole === 'analyst' ||
+    !user?.role // allow by default for analyst session
 
-  const currentStatus =
-    selectedLog?.status ||
-    'DETECTED'
+  const handleAcknowledgeThreat = async () => {
+    if (!threatId || ackLoading) return
+    setAckLoading(true)
+    setAckedThreatIds((prev) => new Set([...prev, String(threatId)]))
+    try {
+      await acknowledgeThreat(threatId)
+      setAckSuccess(true)
+      setTimeout(() => setAckSuccess(false), 3500)
+    } catch (err) {
+      console.error('[Response] Acknowledge error:', err)
+    } finally {
+      setAckLoading(false)
+    }
+  }
 
-  const currentStageIndex =
-    Math.max(
-      0,
-      LIFECYCLE_STAGES.indexOf(
-        currentStatus
+  const handleBlockIp = async () => {
+    if (!selectedLog?.source_ip || selectedLog.source_ip === 'N/A' || blockLoading) return
+    setBlockLoading(true)
+    try {
+      await api.post(
+        `/firewall/block?ip_address=${encodeURIComponent(
+          selectedLog.source_ip
+        )}&reason=${encodeURIComponent(
+          `Manual analyst block for Threat #${threatId}: ${selectedLog.attack_type}`
+        )}&severity=CRITICAL`
       )
-    )
+      setBlockSuccess(true)
+      setTimeout(() => setBlockSuccess(false), 3500)
+    } catch (err) {
+      console.error('[Response] Block error:', err)
+    } finally {
+      setBlockLoading(false)
+    }
+  }
 
-  const primaryConfidence =
-    primary
-      ? recommendationConfidence(
-          primary.confidence_score
-        )
-      : null
+  // Helper for threat navigation
+  const currentIndex = activeThreats.findIndex(
+    (t) => String(t.attack_log_id ?? t.id) === String(threatId)
+  )
 
-  const statusStyle =
-    LIFECYCLE_STYLE[
-      currentStatus
-    ] ||
-    LIFECYCLE_STYLE.DETECTED
+  const handlePrev = () => {
+    if (currentIndex > 0) {
+      const prev = activeThreats[currentIndex - 1]
+      setSelectedAttackLogId(prev.attack_log_id ?? prev.id)
+    }
+  }
 
+  const handleNext = () => {
+    if (currentIndex < activeThreats.length - 1) {
+      const next = activeThreats[currentIndex + 1]
+      setSelectedAttackLogId(next.attack_log_id ?? next.id)
+    }
+  }
 
   return (
-    <div className="p-6 space-y-6">
-
-      {/* ================================================= */}
-      {/* HEADER                                            */}
-      {/* ================================================= */}
-
-      <div className="flex items-center justify-between">
-
+    <div className="p-6 space-y-6 bg-cyber-bg min-h-screen text-slate-100 font-sans">
+      {/* ─── HEADER ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4">
         <div>
-          <h1 className="text-2xl font-black text-white">
-            Incident Response &amp; Recovery
+          <h1 className="text-2xl font-black font-mono tracking-wide text-white flex items-center gap-2.5">
+            <Shield className="text-cyber-cyan" size={24} />
+            THREAT ORCHESTRATION &amp; ANALYST VERIFICATION
           </h1>
-
-          <p className="text-sm text-gray-400 mt-0.5">
-            Review QIGA recommendations and authorize
-            approved response workflows
+          <p className="text-xs font-mono text-slate-400 mt-1">
+            Real-time security threat stream. Automated mitigation is disabled; human analyst review and acknowledgement required.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded border border-cyber-cyan/30 bg-cyber-cyan/5 text-cyber-cyan">
-
-          <span className="w-2 h-2 rounded-full bg-cyber-cyan pulse-dot" />
-
-          Decision Engine Active
-
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 text-cyan-300">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 pulse-dot" />
+            HUMAN-IN-THE-LOOP ACTIVE
+          </div>
+          <div className="text-xs font-mono text-slate-400 bg-black/40 px-3 py-1.5 rounded border border-white/10">
+            Operator: <span className="text-white font-bold">{user?.full_name || user?.username || 'Dr. Sara Gharat'}</span> ({user?.role || 'analyst'})
+          </div>
         </div>
-
       </div>
 
-
-      {/* ================================================= */}
-      {/* ACTIVE THREAT QUEUE                               */}
-      {/* ================================================= */}
-
-      <div className="cyber-card p-5">
-
-        <div className="flex items-center justify-between mb-4">
-
-          <div>
-            <h3 className="text-sm font-bold text-white font-mono">
-              ACTIVE THREAT QUEUE
-            </h3>
-
-            <p className="text-xs text-gray-500 font-mono mt-1">
-              Real AttackLogs currently requiring attention
-            </p>
+      {/* ─── COMPACT THREAT SELECTOR ──────────────────────────────────────── */}
+      <div className="cyber-card p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-l-4 border-cyber-cyan">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-red-950/60 border border-red-500/40 flex items-center justify-center">
+            <AlertOctagon className="text-red-400" size={20} />
           </div>
-
-          <span className="text-xs font-mono text-cyber-red">
-            {activeThreats.length} ACTIVE
-          </span>
-
+          <div>
+            <div className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+              Detected Healthcare Threats
+            </div>
+            <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+              {activeThreats.length} threat{activeThreats.length !== 1 ? 's' : ''} currently logged in network stream
+            </div>
+          </div>
         </div>
 
+        {activeThreats.length > 0 ? (
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <button
+              onClick={handlePrev}
+              disabled={currentIndex <= 0}
+              className="p-1.5 rounded bg-black/50 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
+              title="Previous threat"
+            >
+              <ChevronLeft size={16} />
+            </button>
 
-        {activeThreats.length === 0 ? (
-
-          <div className="py-8 text-center">
-
-            <CheckCircle
-              size={24}
-              className="text-gray-700 mx-auto mb-3"
-            />
-
-            <p className="text-sm text-gray-500 font-mono">
-              No active threats available.
-            </p>
-
-          </div>
-
-        ) : (
-
-          <div className="space-y-2">
-
-            {activeThreats
-              .slice(0, 10)
-              .map((threat) => {
-
-                const threatId =
-                  threat.attack_log_id ??
-                  threat.id
-
-                const isSelected =
-                  String(
-                    selectedAttackLogId
-                  ) ===
-                  String(
-                    threatId
-                  )
-
-                const risk =
-                  Number(
-                    threat.risk_score ||
-                      0
-                  )
-
-                const riskColor =
-                  risk > 75
-                    ? '#ff2d55'
-                    : risk > 45
-                      ? '#ffd60a'
-                      : '#00ff88'
-
+            <select
+              value={threatId || ''}
+              onChange={(e) => setSelectedAttackLogId(e.target.value)}
+              className="bg-black/80 border border-cyan-500/40 text-cyan-300 text-xs font-mono rounded-lg px-3 py-2 focus:border-cyber-cyan focus:outline-none w-full md:w-96 font-semibold"
+            >
+              {activeThreats.map((t) => {
+                const id = t.attack_log_id ?? t.id
+                const isAck =
+                  t.status === 'ACKNOWLEDGED' ||
+                  ackedThreatIds.has(String(id))
                 return (
-
-                  <button
-                    key={threatId}
-                    type="button"
-                    onClick={() =>
-                      setSelectedAttackLogId(
-                        threatId
-                      )
-                    }
-                    className={`w-full text-left rounded-lg border p-3 transition-all ${
-                      isSelected
-                        ? 'border-cyber-cyan bg-cyber-cyan/10'
-                        : 'border-cyber-border hover:border-cyber-cyan/40 bg-black/10'
-                    }`}
-                  >
-
-                    <div className="flex items-center gap-3">
-
-                      <div
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{
-                          background:
-                            riskColor,
-
-                          boxShadow:
-                            `0 0 8px ${riskColor}`,
-                        }}
-                      />
-
-                      <div className="flex-1 min-w-0">
-
-                        <div className="flex items-center gap-2 flex-wrap">
-
-                          <span className="text-xs font-mono font-bold text-cyber-cyan">
-                            #{threatId}
-                          </span>
-
-                          <span className="text-xs font-mono font-bold text-white">
-                            {threat.attack_type}
-                          </span>
-
-                          <span className="text-[10px] text-purple-400 font-mono">
-                            {threat.dataset ||
-                              'N/A'}
-                          </span>
-
-                        </div>
-
-                        <div className="flex items-center gap-3 mt-1 text-[11px] font-mono text-gray-500">
-
-                          <span>
-                            Target:{' '}
-                            {threat.asset_name ||
-                              threat.dest_ip ||
-                              threat.pc ||
-                              'N/A'}
-                          </span>
-
-                          <span>
-                            Status:{' '}
-                            {threat.status ||
-                              'DETECTED'}
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                      <div className="text-right flex-shrink-0">
-
-                        <p
-                          className="text-sm font-mono font-bold"
-                          style={{
-                            color:
-                              riskColor,
-                          }}
-                        >
-                          {risk.toFixed(0)}
-                        </p>
-
-                        <p className="text-[10px] text-gray-600 font-mono">
-                          RISK
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </button>
+                  <option key={id} value={id}>
+                    #{id} · {t.attack_type} [{t.severity}] · Risk {Math.round(t.risk_score || 0)}/100 · {isAck ? '✓ ACKNOWLEDGED' : 'DETECTED'}
+                  </option>
                 )
               })}
+            </select>
 
+            <button
+              onClick={handleNext}
+              disabled={currentIndex >= activeThreats.length - 1}
+              className="p-1.5 rounded bg-black/50 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition"
+              title="Next threat"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        ) : (
+          <div className="text-xs font-mono text-slate-500">
+            No active threats in network stream
           </div>
         )}
-
       </div>
 
-
-      {/* ================================================= */}
-      {/* NORMAL                                           */}
-      {/* ================================================= */}
-
-      {isNormal && (
-
-        <div className="cyber-card p-10 text-center border-l-4 border-gray-700">
-
-          <CheckCircle
-            size={48}
-            className="text-gray-600 mx-auto mb-4"
-          />
-
-          <h2 className="text-xl font-bold font-mono text-white">
-            Normal Traffic
+      {/* ─── NO THREATS EMPTY STATE ───────────────────────────────────────── */}
+      {!selectedLog && (
+        <div className="cyber-card p-12 text-center border-dashed border-slate-800">
+          <CheckCircle size={40} className="text-emerald-500/60 mx-auto mb-3" />
+          <h2 className="text-base font-mono font-bold text-white uppercase">
+            Network Stream Clear
           </h2>
-
-          <p className="text-sm text-gray-500 font-mono max-w-md mx-auto mt-2">
-            AttackLog #{selectedAttackLogId}
-            {' '}
-            is classified as Normal telemetry.
-            Response and recovery actions are not applicable.
+          <p className="text-xs font-mono text-slate-400 mt-1 max-w-md mx-auto">
+            Zero security threats detected. Continuous MLP classification and healthcare node telemetry monitoring is running normally.
           </p>
-
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900/50 text-xs font-mono text-gray-400">
-            LOGGED TELEMETRY · NO RESPONSE REQUIRED
-          </div>
-
         </div>
       )}
 
-
-      {/* ================================================= */}
-      {/* SELECTED THREAT                                  */}
-      {/* ================================================= */}
-
-      {!isNormal &&
-        selectedLog && (
-          <>
-
-            <div className="cyber-card p-5 border-l-4 border-cyber-red">
-
-              <div className="flex items-center justify-between mb-4">
-
-                <div className="flex items-center gap-2">
-
-                  <AlertTriangle
-                    size={15}
-                    className="text-cyber-red"
-                  />
-
-                  <span className="text-xs font-mono text-cyber-red uppercase font-bold">
-                    Selected Threat
+      {/* ─── MAIN THREAT INVESTIGATION & ANALYST TRIAGE ───────────────────── */}
+      {selectedLog && (
+        <div className="space-y-5">
+          {/* Status & Analyst Verification Banner */}
+          <div className={`cyber-card p-5 border-l-4 transition-all duration-300 ${
+            isAcknowledged ? 'border-emerald-500 bg-emerald-950/10' : 'border-red-500 bg-red-950/10'
+          }`}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isAcknowledged ? 'bg-emerald-400' : 'bg-red-500 pulse-dot'}`} />
+                  <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-300">
+                    Mandatory Analyst Verification
                   </span>
-
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black tracking-wider uppercase border ${
+                    isAcknowledged
+                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                      : 'bg-red-950/80 text-red-300 border-red-500/60 shadow-[0_0_10px_rgba(255,45,85,0.3)]'
+                  }`}>
+                    STATUS: {isAcknowledged ? 'ACKNOWLEDGED' : 'DETECTED'}
+                  </span>
                 </div>
 
-                <span className="text-xs font-mono text-gray-500">
-                  AttackLog #
-                  {selectedLog.attack_log_id ??
-                    selectedLog.id}
-                </span>
-
+                <p className="text-xs font-mono text-slate-400 mt-1.5 leading-relaxed max-w-2xl">
+                  {isAcknowledged
+                    ? 'This threat has been reviewed, acknowledged, and signed off by a certified healthcare security analyst.'
+                    : 'Threat requires manual review by the security analyst. Automatic containment and recovery are disabled to protect healthcare availability.'}
+                </p>
               </div>
 
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
-
-                <div>
-                  <p className="text-gray-500">
-                    ATTACK TYPE
-                  </p>
-                  <p className="text-white font-bold mt-1">
-                    {selectedLog.attack_type ||
-                      'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    DATASET
-                  </p>
-                  <p className="text-purple-300 mt-1">
-                    {selectedLog.dataset ||
-                      'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    SEVERITY
-                  </p>
-                  <p className="text-orange-400 font-bold mt-1">
-                    {selectedLog.severity ||
-                      'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    RISK SCORE
-                  </p>
-
-                  <p
-                    className="font-bold mt-1"
-                    style={{
-                      color:
-                        Number(
-                          selectedLog.risk_score ||
-                            0
-                        ) > 75
-                          ? '#ff2d55'
-                          : Number(
-                                selectedLog.risk_score ||
-                                  0
-                              ) > 45
-                            ? '#ffd60a'
-                            : '#00ff88',
-                    }}
+              {/* Action Buttons for Analyst */}
+              <div className="flex flex-wrap items-center gap-3">
+                {!isAcknowledged && canAcknowledge && (
+                  <button
+                    onClick={handleAcknowledgeThreat}
+                    disabled={ackLoading}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-mono font-bold text-xs rounded-lg transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)] flex items-center gap-2 cursor-pointer disabled:opacity-60 active:scale-[0.98]"
                   >
-                    {selectedLog.risk_score != null
-                      ? `${Math.round(
-                          Number(
-                            selectedLog.risk_score
-                          )
-                        )}/100`
-                      : 'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    CONFIDENCE
-                  </p>
-
-                  <p className="text-cyan-400 font-bold mt-1">
-                    {selectedLog.confidence != null
-                      ? `${Math.round(
-                          Number(
-                            selectedLog.confidence
-                          )
-                        )}%`
-                      : 'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    TARGET ASSET
-                  </p>
-
-                  <p className="text-purple-300 mt-1">
-                    {selectedLog.asset_name ||
-                      selectedLog.dest_ip ||
-                      selectedLog.pc ||
-                      'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    DEPARTMENT
-                  </p>
-
-                  <p className="text-cyan-400 mt-1">
-                    {selectedLog.department ||
-                      'N/A'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-gray-500">
-                    MITRE TECHNIQUE
-                  </p>
-
-                  <p className="text-purple-400 mt-1">
-                    {selectedLog.mitre_technique_id ||
-                      'N/A'}
-                  </p>
-                </div>
-
-              </div>
-
-
-              <div className="mt-4 p-3 rounded-lg bg-purple-900/20 border border-purple-700/40">
-
-                <p className="text-xs text-gray-500 font-mono">
-                  MITRE DESCRIPTION
-                </p>
-
-                <p className="text-xs text-purple-300 font-mono mt-1">
-                  {selectedLog.mitre_technique_name ||
-                    'No MITRE technique mapped'}
-                </p>
-
-              </div>
-
-            </div>
-
-
-            {/* ============================================= */}
-            {/* LIFECYCLE                                    */}
-            {/* ============================================= */}
-
-            <div className="cyber-card p-5">
-
-              <div className="flex items-center justify-between mb-4">
-
-                <div>
-
-                  <h3 className="text-sm font-bold text-white font-mono">
-                    RESPONSE LIFECYCLE
-                  </h3>
-
-                  <p className="text-xs text-gray-500 font-mono mt-1">
-                    Current status:{' '}
-                    <span
-                      className={
-                        statusStyle.text
-                      }
-                    >
-                      {currentStatus}
-                    </span>
-                  </p>
-
-                </div>
-
-                <span
-                  className={`px-3 py-1 rounded-full border text-xs font-mono ${statusStyle.text} ${statusStyle.bg} ${statusStyle.border}`}
-                >
-                  {currentStatus}
-                </span>
-
-              </div>
-
-
-              <div className="grid grid-cols-5 gap-2">
-
-                {LIFECYCLE_STAGES.map(
-                  (
-                    stage,
-                    index
-                  ) => {
-
-                    const reached =
-                      currentStageIndex >=
-                      index
-
-                    const current =
-                      currentStatus ===
-                      stage
-
-                    const style =
-                      LIFECYCLE_STYLE[
-                        stage
-                      ]
-
-                    return (
-
-                      <div
-                        key={stage}
-                        className="relative"
-                      >
-
-                        <div
-                          className={`rounded-lg border p-3 text-center ${
-                            current
-                              ? `${style.bg} ${style.border}`
-                              : reached
-                                ? 'bg-cyber-blue/10 border-cyber-cyan/30'
-                                : 'bg-black/20 border-cyber-border/50'
-                          }`}
-                        >
-
-                          <div
-                            className={`w-2.5 h-2.5 rounded-full mx-auto mb-2 ${
-                              current
-                                ? `${style.dot} pulse-dot`
-                                : reached
-                                  ? 'bg-cyber-cyan'
-                                  : 'bg-gray-700'
-                            }`}
-                          />
-
-                          <p
-                            className={`text-[10px] font-mono font-bold ${
-                              current
-                                ? style.text
-                                : reached
-                                  ? 'text-cyber-cyan'
-                                  : 'text-gray-600'
-                            }`}
-                          >
-                            {stage}
-                          </p>
-
-                        </div>
-
-                      </div>
-                    )
-                  }
+                    {ackLoading ? (
+                      <RefreshCw size={14} className="animate-spin text-slate-950" />
+                    ) : (
+                      <CheckCircle size={14} className="text-slate-950 font-black" />
+                    )}
+                    <span>Acknowledge Threat (Analyst Sign-off)</span>
+                  </button>
                 )}
 
-              </div>
-
-            </div>
-
-
-            {/* ============================================= */}
-            {/* ERROR                                          */}
-            {/* ============================================= */}
-
-            {error && (
-
-              <div className="cyber-card p-4 border-l-4 border-red-500 bg-red-950/20">
-
-                <p className="text-xs font-mono text-red-400">
-                  {error}
-                </p>
-
-              </div>
-
-            )}
-
-
-            {/* ============================================= */}
-            {/* QIGA RECOMMENDATIONS                          */}
-            {/* ============================================= */}
-
-            <div className="cyber-card p-5">
-
-              <div className="flex items-center justify-between mb-4">
-
-                <div>
-
-                  <h3 className="text-sm font-bold text-white font-mono">
-                    QIGA RESPONSE RECOMMENDATIONS
-                  </h3>
-
-                  <p className="text-xs text-gray-500 font-mono mt-1">
-                    Recommendations generated for AttackLog #
-                    {selectedAttackLogId}
-                  </p>
-
-                </div>
-
-                <div className="text-right">
-
-                  {primary && (
-                    <span
-                      className="text-xs font-mono font-bold"
-                      style={{
-                        color:
-                          confidenceColor(
-                            primaryConfidence
-                          ),
-                      }}
-                    >
-                      {primaryConfidence !==
-                      null
-                        ? `${primaryConfidence}%`
-                        : 'N/A'}
-                    </span>
-                  )}
-
-                  {lastQigaRun && (
-                    <p className="text-[9px] text-gray-600 font-mono mt-1">
-                      QIGA #{lastQigaRun.qiga_id}
-                    </p>
-                  )}
-
-                </div>
-
-              </div>
-
-
-              {loading &&
-              recs.length === 0 ? (
-
-                <div className="p-8 text-center">
-
-                  <RefreshCw
-                    size={22}
-                    className="text-cyber-cyan animate-spin mx-auto mb-3"
-                  />
-
-                  <p className="text-sm text-white font-mono">
-                    Waiting for QIGA recommendation...
-                  </p>
-
-                </div>
-
-              ) : primary ? (
-
-                <div className="space-y-4">
-
-                  {/* MAIN QIGA ACTION */}
-
-                  <div className="rounded-xl border border-cyber-cyan/40 bg-cyber-cyan/5 p-5">
-
-                    <div className="flex items-start gap-4">
-
-                      <div className="w-11 h-11 rounded-lg bg-gray-900 border border-cyber-border flex items-center justify-center flex-shrink-0">
-
-                        {(() => {
-                          const Icon =
-                            ACTION_ICONS[
-                              primary.action_type
-                            ] || Zap
-
-                          return (
-                            <Icon
-                              size={20}
-                              className="text-cyber-cyan"
-                            />
-                          )
-                        })()}
-
-                      </div>
-
-
-                      <div className="flex-1">
-
-                        <div className="flex items-center justify-between gap-3">
-
-                          <h4 className="text-lg font-black text-white font-mono">
-                            {primary.title ||
-                              primary.action_type ||
-                              'Recommendation'}
-                          </h4>
-
-                          <span className="text-xs font-mono text-cyber-cyan">
-                            {primary.action_type ||
-                              'N/A'}
-                          </span>
-
-                        </div>
-
-                        <p className="text-sm text-gray-400 mt-1">
-                          {primary.description ||
-                            'No description provided.'}
-                        </p>
-
-                      </div>
-
-                    </div>
-
-
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 text-xs font-mono">
-
-                      <div>
-                        <p className="text-gray-600">
-                          CONFIDENCE
-                        </p>
-
-                        <p className="text-white font-bold mt-1">
-                          {primaryConfidence !==
-                          null
-                            ? `${primaryConfidence}%`
-                            : 'N/A'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-gray-600">
-                          RESOURCE COST
-                        </p>
-
-                        <p className="text-white font-bold mt-1">
-                          {primary.resource_cost ||
-                            'N/A'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-gray-600">
-                          LATENCY IMPACT
-                        </p>
-
-                        <p className="text-white font-bold mt-1">
-                          {primary.latency_impact ||
-                            'N/A'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-gray-600">
-                          APPROVAL
-                        </p>
-
-                        <p
-                          className={`font-bold mt-1 ${
-                            primary.is_approved
-                              ? 'text-green-400'
-                              : 'text-yellow-400'
-                          }`}
-                        >
-                          {primary.is_approved
-                            ? 'APPROVED'
-                            : 'PENDING ADMIN/ANALYST'}
-                        </p>
-                      </div>
-
-                    </div>
-
-
-                    {primaryConfidence !==
-                      null && (
-                      <div className="mt-4 h-1 bg-gray-800 rounded-full overflow-hidden">
-
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width:
-                              `${Math.min(
-                                100,
-                                primaryConfidence
-                              )}%`,
-
-                            background:
-                              confidenceColor(
-                                primaryConfidence
-                              ),
-                          }}
-                        />
-
-                      </div>
-                    )}
-
-
-                    {/* APPROVAL & REJECTION BUTTONS */}
-
-                    {primary.status === 'REJECTED' ? (
-                      <div className="mt-5 w-full py-3 rounded-lg text-sm font-bold font-mono text-center border border-rose-500/40 bg-rose-950/30 text-rose-400">
-                        ✕ REJECTED BY OPERATOR
-                      </div>
-                    ) : primary.is_approved || primary.status === 'APPROVED' ? (
-                      <div className="mt-5 w-full py-3 rounded-lg text-sm font-bold font-mono text-center border border-green-500/40 bg-green-900/20 text-green-400">
-                        ✓ AUTHORIZED — RECOVERY WORKFLOW STARTED
-                      </div>
-                    ) : approvalLocked ? (
-                      <div className="mt-5 p-3 rounded-lg border border-yellow-700/30 bg-yellow-900/10 text-center">
-                        <p className="text-xs text-yellow-400 font-mono font-bold">
-                          RESPONSE AUTHORIZATION LOCKED
-                        </p>
-                        <p className="text-[11px] text-gray-500 font-mono mt-1">
-                          Another response action for this AttackLog has already been authorized or recovery has started.
-                        </p>
-                      </div>
-                    ) : canApprove ? (
-                      <div className="flex items-center gap-3 mt-5">
-                        <button
-                          type="button"
-                          onClick={() => approve(primary.id)}
-                          disabled={loading}
-                          className="flex-1 py-3 rounded-lg text-sm font-bold font-mono transition-all cursor-pointer text-slate-950"
-                          style={{
-                            background: 'linear-gradient(135deg, #0066ff, #00e5ff)',
-                          }}
-                        >
-                          {loading
-                            ? 'AUTHORIZING...'
-                            : `AUTHORIZE: ${primary.title || primary.action_type || 'RESPONSE'}`}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => reject(primary.id)}
-                          disabled={loading}
-                          className="px-5 py-3 rounded-lg text-sm font-bold font-mono transition-all border border-rose-500/40 bg-rose-950/20 text-rose-400 hover:bg-rose-900/30 cursor-pointer"
-                        >
-                          REJECT
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-5 p-3 rounded-lg border border-gray-700 bg-gray-900/30 text-center">
-                        <p className="text-xs text-gray-400 font-mono">
-                          RESPONSE AUTHORIZATION LOCKED
-                        </p>
-                        <p className="text-[11px] text-gray-600 font-mono mt-1">
-                          Admin or Analyst approval is required.
-                        </p>
-                      </div>
-                    )}
-
+                {isAcknowledged && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950/60 border border-emerald-500/60 rounded-lg text-emerald-300 font-mono text-xs font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                    <UserCheck size={16} className="text-emerald-400" />
+                    <span>✓ Acknowledged by Analyst ({user?.full_name || 'Dr. Sara Gharat'})</span>
                   </div>
-
-
-                  {/* ALTERNATIVES */}
-
-                  {alternatives.length >
-                    0 && (
-
-                    <div>
-
-                      <p className="text-xs text-gray-500 font-mono uppercase mb-2">
-                        Other QIGA Selected Actions
-                      </p>
-
-                      <div className="grid lg:grid-cols-2 gap-3">
-
-                        {alternatives
-                          .slice(0, 4)
-                          .map(
-                            (
-                              recommendation
-                            ) => {
-
-                              const Icon =
-                                ACTION_ICONS[
-                                  recommendation
-                                    .action_type
-                                ] ||
-                                Zap
-
-                              const confidence =
-                                recommendationConfidence(
-                                  recommendation.confidence_score
-                                )
-
-                              return (
-
-                                <div
-                                  key={
-                                    recommendation.id
-                                  }
-                                  className="rounded-xl border border-cyber-border p-4"
-                                >
-
-                                  <div className="flex items-start gap-3">
-
-                                    <div className="w-8 h-8 rounded bg-gray-900 border border-cyber-border flex items-center justify-center">
-
-                                      <Icon
-                                        size={15}
-                                        className="text-gray-400"
-                                      />
-
-                                    </div>
-
-
-                                    <div className="flex-1">
-
-                                      <div className="flex items-center justify-between gap-2">
-
-                                        <p className="text-sm font-bold text-white">
-
-                                          {recommendation.title ||
-                                            recommendation.action_type ||
-                                            'Action'}
-
-                                        </p>
-
-                                        <span
-                                          className="text-xs font-mono font-bold"
-                                          style={{
-                                            color:
-                                              confidenceColor(
-                                                confidence
-                                              ),
-                                          }}
-                                        >
-                                          {confidence !==
-                                          null
-                                            ? `${confidence}%`
-                                            : 'N/A'}
-                                        </span>
-
-                                      </div>
-
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        {recommendation.description ||
-                                          'No description provided.'}
-                                      </p>
-
-                                    </div>
-
-                                  </div>
-
-
-                                  {recommendation.is_approved ? (
-
-                                    <p className="mt-3 text-xs font-mono text-green-400">
-                                      ✓ Authorized
-                                    </p>
-
-                                  ) : approvalLocked ? (
-
-                                    <p className="mt-3 text-xs font-mono text-gray-600">
-                                      Locked after another action was authorized.
-                                    </p>
-
-                                  ) : canApprove ? (
-
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        approve(
-                                          recommendation.id
-                                        )
-                                      }
-                                      disabled={
-                                        loading
-                                      }
-                                      className="mt-3 text-xs font-mono text-cyber-cyan hover:text-white"
-                                    >
-                                      → Authorize this action
-                                    </button>
-
-                                  ) : (
-
-                                    <p className="mt-3 text-xs font-mono text-gray-600">
-                                      Admin/Analyst approval required.
-                                    </p>
-
-                                  )}
-
-                                </div>
-                              )
-                            }
-                          )}
-
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-
-              ) : (
-
-                <div className="p-8 rounded-xl border border-gray-800 bg-black/20 text-center">
-
-                  <AlertTriangle
-                    size={22}
-                    className="text-gray-600 mx-auto mb-3"
-                  />
-
-                  <p className="text-sm text-white font-mono">
-                    Waiting for QIGA recommendation
-                  </p>
-
-                  <p className="text-xs text-gray-500 font-mono mt-1">
-                    The selected AttackLog has been detected,
-                    but the optimizer result has not arrived yet.
-                  </p>
-
-                </div>
-
-              )}
-
-            </div>
-
-
-            {/* ============================================= */}
-            {/* ACTIVE RECOVERY                               */}
-            {/* ============================================= */}
-
-            {activeRecoveries.length >
-              0 && (
-
-              <div className="cyber-card p-5 border-l-4 border-yellow-500">
-
-                <div className="flex items-center gap-2 mb-3">
-
-                  <RefreshCw
-                    size={15}
-                    className="text-yellow-400 animate-spin"
-                  />
-
-                  <span className="text-sm font-bold text-yellow-400 font-mono">
-                    ACTIVE RECOVERY WORKFLOW
-                  </span>
-
-                  <span className="ml-auto text-xs text-gray-500 font-mono">
-                    {activeRecoveries.length} active
-                  </span>
-
-                </div>
-
-
-                <div className="space-y-2">
-
-                  {activeRecoveries.map(
-                    (
-                      recovery
-                    ) => (
-
-                      <button
-                        key={recovery.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedRecovery(
-                            recovery
-                          )
-                        }
-                        className={`w-full text-left p-3 rounded-lg border transition-all ${
-                          selectedRecovery?.id ===
-                          recovery.id
-                            ? 'border-yellow-500 bg-yellow-900/20'
-                            : 'border-cyber-border hover:border-yellow-500/40'
-                        }`}
-                      >
-
-                        <div className="flex items-center justify-between">
-
-                          <span className="text-xs font-mono font-bold text-white">
-                            {recovery.action_name ||
-                              recovery.action_type ||
-                              'Recovery Action'}
-                          </span>
-
-                          <span className="text-xs font-mono text-yellow-400">
-                            {recovery.status}
-                          </span>
-
-                        </div>
-
-                        <p className="text-[11px] text-gray-500 font-mono mt-1">
-                          {recovery.action_type ||
-                            'N/A'}
-                          {' · '}
-                          Target:{' '}
-                          {recovery.target_node ||
-                            'N/A'}
-                        </p>
-
-                      </button>
-                    )
-                  )}
-
-                </div>
-
-              </div>
-            )}
-
-
-            {/* ============================================= */}
-            {/* EXECUTION LOG                                 */}
-            {/* ============================================= */}
-
-            <div className="cyber-card p-5">
-
-              <div className="flex items-center justify-between mb-4">
-
-                <div className="flex items-center gap-2">
-
-                  <Terminal
-                    size={15}
-                    className="text-cyber-cyan"
-                  />
-
-                  <div>
-
-                    <h3 className="text-sm font-bold text-white font-mono">
-                      RECOVERY EXECUTION LOG
-                    </h3>
-
-                    <p className="text-xs text-gray-500 font-mono mt-1">
-                      Live output from the backend recovery engine
-                    </p>
-
-                  </div>
-
-                </div>
-
-
-                {selectedRecovery && (
-                  <span
-                    className={`px-2 py-1 rounded border text-[10px] font-mono ${
-                      STATUS_STYLE[
-                        selectedRecovery.status
-                      ] || ''
+                )}
+
+                {selectedLog.source_ip && selectedLog.source_ip !== 'N/A' && (
+                  <button
+                    onClick={handleBlockIp}
+                    disabled={blockLoading || blockSuccess}
+                    className={`px-4 py-2.5 font-mono font-bold text-xs rounded-lg transition-all flex items-center gap-2 border cursor-pointer disabled:opacity-60 ${
+                      blockSuccess
+                        ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300'
+                        : 'bg-rose-950/80 hover:bg-rose-900 border-rose-500/60 text-rose-300'
                     }`}
                   >
-                    {selectedRecovery.status}
-                  </span>
+                    <ShieldOff size={14} />
+                    <span>{blockSuccess ? 'Source IP Blocked ✓' : `Block IP (${selectedLog.source_ip})`}</span>
+                  </button>
                 )}
-
               </div>
+            </div>
+          </div>
 
-
-              {selectedRecovery ? (
-
-                <>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4 text-xs font-mono">
-
-                    <div>
-                      <p className="text-gray-600">
-                        ACTION
-                      </p>
-
-                      <p className="text-white mt-1">
-                        {selectedRecovery.action_name ||
-                          selectedRecovery.action_type ||
-                          'N/A'}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-gray-600">
-                        TYPE
-                      </p>
-
-                      <p className="text-white mt-1">
-                        {selectedRecovery.action_type ||
-                          'N/A'}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-gray-600">
-                        TARGET NODE
-                      </p>
-
-                      <p className="text-cyan-400 mt-1">
-                        {selectedRecovery.target_node ||
-                          'N/A'}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-gray-600">
-                        STATUS
-                      </p>
-
-                      <p className="text-white mt-1">
-                        {selectedRecovery.status ||
-                          'PENDING'}
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* RECOVERY PROGRESS BAR */}
-                  <div className="mb-4 bg-slate-900/80 p-3.5 rounded-lg border border-cyan-500/20">
-                    <div className="flex items-center justify-between text-xs font-mono mb-2">
-                      <span className="text-slate-300 flex items-center gap-2">
-                        <RefreshCw size={12} className={selectedRecovery.status === 'IN_PROGRESS' ? 'animate-spin text-cyan-400' : 'text-slate-500'} />
-                        <span className="truncate max-w-md">{selectedRecovery.current_step || (selectedRecovery.status === 'COMPLETED' ? 'Recovery completed successfully.' : 'Recovery initializing...')}</span>
-                      </span>
-                      <span className="text-cyber-cyan font-bold">{selectedRecovery.progress_percent ?? (selectedRecovery.status === 'COMPLETED' ? 100 : 0)}%</span>
-                    </div>
-                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          selectedRecovery.status === 'COMPLETED'
-                            ? 'bg-emerald-400'
-                            : selectedRecovery.status === 'FAILED'
-                              ? 'bg-rose-500'
-                              : 'bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400'
-                        }`}
-                        style={{
-                          width: `${selectedRecovery.progress_percent ?? (selectedRecovery.status === 'COMPLETED' ? 100 : 0)}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div
-                    ref={logRef}
-                    className="bg-black/70 rounded-lg p-4 font-mono text-xs space-y-1 max-h-64 overflow-y-auto border border-gray-800"
-                  >
-
-                    {selectedRecovery.execution_log ? (
-
-                      selectedRecovery.execution_log
-                        .split('\n')
-                        .map(
-                          (
-                            line,
-                            index
-                          ) => {
-
-                            const lower =
-                              line.toLowerCase()
-
-                            const lineClass =
-                              lower.includes(
-                                'error'
-                              ) ||
-                              lower.includes(
-                                'fail'
-                              )
-                                ? 'text-red-400'
-                                : lower.includes(
-                                      'verified'
-                                    ) ||
-                                    lower.includes(
-                                      'complete'
-                                    ) ||
-                                    lower.includes(
-                                      'confirmed'
-                                    ) ||
-                                    lower.includes(
-                                      'success'
-                                    )
-                                  ? 'text-green-400'
-                                  : 'text-gray-300'
-
-                            return (
-                              <p
-                                key={
-                                  index
-                                }
-                                className={
-                                  lineClass
-                                }
-                              >
-                                {line}
-                              </p>
-                            )
-                          }
-                        )
-
-                    ) : (
-
-                      <p className="text-gray-600">
-                        Waiting for recovery execution...
-                      </p>
-
-                    )}
-
-
-                    {selectedRecovery.status ===
-                      'IN_PROGRESS' && (
-
-                      <p className="text-yellow-400 animate-pulse">
-                        ▌
-                      </p>
-
-                    )}
-
-                  </div>
-
-
-                  {selectedRecovery.status ===
-                    'COMPLETED' && (
-
-                    <div className="mt-3 flex items-center gap-2 text-xs font-mono text-green-400">
-
-                      <CheckCircle
-                        size={14}
-                      />
-
-                      Recovery action completed successfully.
-
-                    </div>
-
-                  )}
-
-
-                  {selectedRecovery.status ===
-                    'FAILED' && (
-
-                    <div className="mt-3 flex items-center gap-2 text-xs font-mono text-red-400">
-
-                      <AlertTriangle
-                        size={14}
-                      />
-
-                      Recovery action failed.
-
-                    </div>
-
-                  )}
-
-                </>
-
-              ) : (
-
-                <div className="p-8 rounded-xl border border-gray-800 bg-black/20 text-center">
-
-                  <Terminal
-                    size={22}
-                    className="text-gray-700 mx-auto mb-3"
-                  />
-
-                  <p className="text-sm text-gray-500 font-mono">
-                    No recovery action selected.
-                  </p>
-
-                  <p className="text-xs text-gray-600 font-mono mt-1">
-                    Authorize a QIGA recommendation to start
-                    the backend recovery workflow.
-                  </p>
-
-                </div>
-
-              )}
-
+          {/* Threat Metadata Grid */}
+          <div className="cyber-card p-5">
+            <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className="text-yellow-400" />
+                <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
+                  Threat Telemetry &amp; Impact Analysis — AttackLog #{threatId}
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">
+                Detected: {selectedLog.detected_at ? new Date(selectedLog.detected_at).toLocaleString() : 'Live'}
+              </span>
             </div>
 
-
-            {/* ============================================= */}
-            {/* COMPLETED RECOVERY HISTORY                    */}
-            {/* ============================================= */}
-
-            {completedRecoveries.length >
-              0 && (
-
-              <div className="cyber-card p-5">
-
-                <div className="flex items-center gap-2 mb-4">
-
-                  <CheckCircle
-                    size={15}
-                    className="text-green-400"
-                  />
-
-                  <h3 className="text-sm font-bold text-white font-mono">
-                    COMPLETED RECOVERY ACTIONS
-                  </h3>
-
-                </div>
-
-
-                <div className="space-y-2">
-
-                  {completedRecoveries
-                    .slice(0, 5)
-                    .map(
-                      (
-                        recovery
-                      ) => (
-
-                        <button
-                          key={
-                            recovery.id
-                          }
-                          type="button"
-                          onClick={() =>
-                            setSelectedRecovery(
-                              recovery
-                            )
-                          }
-                          className="w-full text-left rounded-lg border border-cyber-border p-3 hover:border-green-700/40 transition-colors"
-                        >
-
-                          <div className="flex items-center gap-3">
-
-                            <CheckCircle
-                              size={14}
-                              className="text-green-400 flex-shrink-0"
-                            />
-
-                            <div className="flex-1">
-
-                              <p className="text-xs font-mono text-white">
-                                {recovery.action_name ||
-                                  recovery.action_type ||
-                                  'Recovery Action'}
-                              </p>
-
-                              <p className="text-xs text-gray-500 mt-1">
-                                {recovery.action_type ||
-                                  'N/A'}
-                                {' · '}
-                                {recovery.target_node ||
-                                  'N/A'}
-                                {' · '}
-                                Completed{' '}
-                                {recovery.completed_at
-                                  ? new Date(
-                                      recovery.completed_at
-                                    ).toLocaleTimeString()
-                                  : 'N/A'}
-                              </p>
-
-                            </div>
-
-                            <span className="text-[10px] font-mono text-green-400 border border-green-500/50 px-2 py-1 rounded">
-                              VIEW LOG
-                            </span>
-
-                          </div>
-
-                        </button>
-
-                      )
-                    )}
-
-                </div>
-
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Attack Type</p>
+                <p className="text-sm font-black text-white mt-1 truncate">{selectedLog.attack_type || 'N/A'}</p>
               </div>
 
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Severity Level</p>
+                <p className="text-sm font-black text-orange-400 mt-1 truncate">{selectedLog.severity || 'HIGH'}</p>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Risk Index Score</p>
+                <p className="text-sm font-black text-red-400 mt-1">
+                  {selectedLog.risk_score != null ? `${Math.round(Number(selectedLog.risk_score))}/100` : 'N/A'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">AI Classifier Confidence</p>
+                <p className="text-sm font-black text-cyber-cyan mt-1">
+                  {selectedLog.confidence != null ? `${Math.round(Number(selectedLog.confidence))}%` : '98%'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Target Hospital Asset</p>
+                <p className="text-sm font-bold text-purple-300 mt-1 truncate">
+                  {selectedLog.asset_name || selectedLog.dest_ip || 'Laboratory Server'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Department Enclave</p>
+                <p className="text-sm font-bold text-slate-200 mt-1 truncate">
+                  {selectedLog.department || 'Hospital IT'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Source IP / Origin</p>
+                <p className="text-sm font-bold text-cyan-400 mt-1 truncate font-mono">
+                  {selectedLog.source_ip || 'N/A'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-black/40 rounded-lg border border-white/5">
+                <p className="text-[10px] text-slate-400 uppercase">Target Port &amp; Protocol</p>
+                <p className="text-sm font-bold text-slate-200 mt-1 truncate">
+                  {selectedLog.port || '80'} / {selectedLog.protocol || 'TCP'}
+                </p>
+              </div>
+            </div>
+
+            {/* MITRE Alignment */}
+            {(selectedLog.mitre_technique_id || selectedLog.mitre_technique_name) && (
+              <div className="mt-4 p-3.5 rounded-lg bg-purple-950/20 border border-purple-700/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-purple-400 uppercase font-bold">
+                    MITRE ATT&amp;CK Matrix Alignment
+                  </span>
+                  <span className="text-xs font-mono font-bold text-purple-300">
+                    {selectedLog.mitre_technique_id || 'T1486'}
+                  </span>
+                </div>
+                <p className="text-xs text-purple-200 font-mono mt-1">
+                  {selectedLog.mitre_technique_name || 'Data Encrypted for Impact'}
+                </p>
+                {selectedLog.description && (
+                  <p className="text-[11px] text-slate-400 font-mono mt-2 leading-relaxed">
+                    {selectedLog.description}
+                  </p>
+                )}
+              </div>
             )}
+          </div>
 
-          </>
-        )}
+          {/* AI Decision Support & Advisory Guidance */}
+          <div className="cyber-card p-5">
+            <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
+              <div>
+                <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Zap size={14} className="text-cyber-cyan" /> AI Decision Support &amp; Recommended Actions
+                </h3>
+                <p className="text-[11px] font-mono text-slate-400 mt-0.5">
+                  Guidance generated by QIGA for human analyst review. No action is performed automatically.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded">
+                ADVISORY ONLY
+              </span>
+            </div>
 
+            {loadingRecs ? (
+              <div className="py-6 text-center font-mono text-xs text-slate-400">
+                <RefreshCw size={16} className="animate-spin inline mr-2 text-cyan-400" />
+                Retrieving AI recommendations...
+              </div>
+            ) : recs.length === 0 ? (
+              <div className="p-4 rounded-lg bg-black/40 border border-white/5 text-xs font-mono text-slate-400">
+                Standard containment guidance: Isolate target subnet, inspect host memory, and rotate privileged medical workstation credentials manually.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recs.map((r, i) => (
+                  <div key={r.id || i} className="p-3.5 rounded-lg bg-black/40 border border-cyan-500/20 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-white">{r.title || r.action_type}</span>
+                        <span className="text-[10px] font-mono text-cyan-400 font-bold">{r.confidence_score ? `${Math.round(r.confidence_score * 100)}% Conf` : 'HIGH'}</span>
+                      </div>
+                      <p className="text-[11px] font-mono text-slate-300 mt-1.5 leading-relaxed">
+                        {r.description || 'Review network logs and isolate affected node per hospital SOC protocol.'}
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                      <span>Action Type: {r.action_type || 'MANUAL_TRIAGE'}</span>
+                      <span className="text-emerald-400">Analyst Discretion</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-

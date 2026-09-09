@@ -43,6 +43,22 @@ def clear_logs():
             print(f"  cleared {deleted:>6} rows from {model.__tablename__}")
         db.commit()
         print(f"\n[OK] Cleared {total} log rows. Users and hospital assets kept.")
+
+        # Notify running backend & WebSocket clients to clear live feeds in real time
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                "http://127.0.0.1:8000/api/sim/auto-attack/reset",
+                method="POST",
+                data=b"{}",
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                if resp.status == 200:
+                    print("  [OK] Notified running backend: WebSocket broadcast sent to clear live UI.")
+        except Exception:
+            # Backend may not be running currently, which is completely normal
+            pass
     except Exception as error:
         db.rollback()
         print(f"[ERROR] Failed to clear logs: {error}")

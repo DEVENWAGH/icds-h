@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react"
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import {
   Shield, Activity, Bell, AlertOctagon, FileText, Brain, Zap, Cpu,
   Database, Settings, LogOut, User, RefreshCw, Play, Wifi, WifiOff,
@@ -173,29 +173,18 @@ function AttackDetail({ log: attackLog, onBlockIp, onAcknowledge }) {
         </div>
       </div>
 
-      {/* Quick Mitigation Action Buttons */}
-      <div className="grid grid-cols-2 gap-2">
-        {attackLog.source_ip && attackLog.source_ip !== "N/A" && (
-          <button onClick={handleBlock} disabled={blockState === "loading" || blockState === "done"}
-            className={`py-2 px-3 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all border disabled:opacity-80 ${
-              blockState === "done" ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300"
-              : blockState === "error" ? "bg-red-900/80 border-red-400 text-red-200"
-              : "bg-red-950/60 hover:bg-red-900/80 border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(255,45,85,0.15)]"}`}>
-            {blockState === "loading" ? <RefreshCw size={13} className="animate-spin" />
-              : blockState === "done" ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
-            {BLOCK_LABEL[blockState]}
-          </button>
-        )}
-        <button onClick={handleAck} disabled={ackState === "loading" || ackState === "done"}
-          className={`py-2 px-3 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all border disabled:opacity-80 ${
-            ackState === "done" ? "bg-emerald-900/80 border-emerald-400 text-emerald-200"
-            : ackState === "noalert" ? "bg-yellow-950/60 border-yellow-500/50 text-yellow-300"
-            : "bg-emerald-950/60 hover:bg-emerald-900/80 border-emerald-500/50 text-emerald-300"}`}>
-          {ackState === "loading" ? <RefreshCw size={13} className="animate-spin" />
-            : ackState === "noalert" ? <AlertTriangle size={13} /> : <CheckCircle size={13} />}
-          {ACK_LABEL[ackState]}
+      {/* Action Button: Firewall Block (Acknowledgement is handled in Orchestration) */}
+      {attackLog.source_ip && attackLog.source_ip !== "N/A" && (
+        <button onClick={handleBlock} disabled={blockState === "loading" || blockState === "done"}
+          className={`w-full py-2 px-3 font-mono text-xs rounded-lg flex items-center justify-center gap-1.5 transition-all border disabled:opacity-80 ${
+            blockState === "done" ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300"
+            : blockState === "error" ? "bg-red-900/80 border-red-400 text-red-200"
+            : "bg-red-950/60 hover:bg-red-900/80 border-red-500/50 text-red-300 shadow-[0_0_10px_rgba(255,45,85,0.15)]"}`}>
+          {blockState === "loading" ? <RefreshCw size={13} className="animate-spin" />
+            : blockState === "done" ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
+          {BLOCK_LABEL[blockState]}
         </button>
-      </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         {[
@@ -531,6 +520,8 @@ function SimulatorPanel({ sim }) {
         <button
           onClick={async () => {
             clearLog()
+            useAlertStore.getState().clearLiveThreats()
+            setLogs([])
             if (!autoRunning) {
               // Not running: also reset stage locally
               useSimulatorStore.setState({ stage: 'IDLE', lastResult: null })
@@ -539,6 +530,7 @@ function SimulatorPanel({ sim }) {
             try {
               await import('../utils/api').then(m => m.default.post('/sim/auto-attack/reset-count'))
             } catch (e) { console.warn('[clear] reset-count failed:', e) }
+            fetchAll()
           }}
           className="text-[10px] text-slate-500 hover:text-slate-300 font-mono transition"
         >clear</button>
@@ -587,6 +579,12 @@ export default function SOCCommand() {
   const [attackDistrib, setAttackDistrib] = useState([])
   const [feedFilter, setFeedFilter] = useState("ALL")
 
+  // Combined threats feed (live WebSocket threats + detected database logs)
+  const combinedThreats = useMemo(() => [
+    ...liveThreats,
+    ...logs.filter(l => l.attack_type && l.attack_type !== "Normal" && !liveThreats.some(lt => String(lt.attack_log_id || lt.id) === String(l.id)))
+  ], [liveThreats, logs])
+
   // Firewall modal
   const [fwAddOpen, setFwAddOpen] = useState(false)
   const [newIp, setNewIp] = useState("")
@@ -601,19 +599,34 @@ export default function SOCCommand() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [logsRes, alertsRes, fwRes, assetsRes] = await Promise.all([
+      const [logsRes, alertsRes, fwRes, assetsRes, riskHistRes] = await Promise.all([
         api.get("/logs/?limit=40"),
         api.get("/alerts/?limit=40"),
         api.get("/firewall/rules?active_only=true"),
         api.get("/assets/"),
+        api.get("/dashboard/risk-history?limit=20").catch(() => ({ data: [] })),
       ])
-      setLogs(logsRes.data || [])
+      const fetchedLogs = logsRes.data || []
+      setLogs(fetchedLogs)
       setAlerts(alertsRes.data || [])
       setFwRules(fwRes.data || [])
       setAssets(assetsRes.data || [])
 
+      if (fetchedLogs.length === 0) {
+        useAlertStore.getState().clearLiveThreats()
+      }
+
+      if (Array.isArray(riskHistRes?.data) && riskHistRes.data.length > 0) {
+        const hist = riskHistRes.data.map((item, i) => ({
+          time: item.t || new Date(Date.now() - (riskHistRes.data.length - i) * 30000).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' }),
+          risk: Math.round(Number(item.score ?? item.risk ?? 0)),
+          threats: Number(item.threats ?? 0),
+        }))
+        setChartHistory(hist)
+      }
+
       const dist = {}
-      ;(logsRes.data || []).forEach(l => { dist[l.attack_type] = (dist[l.attack_type] || 0) + 1 })
+      fetchedLogs.forEach(l => { dist[l.attack_type] = (dist[l.attack_type] || 0) + 1 })
       setAttackDistrib(Object.entries(dist).map(([name, value]) => ({ name, value })))
     } catch (err) { console.error("[SOCCommand]", err) }
   }, [])
@@ -631,14 +644,89 @@ export default function SOCCommand() {
     if (liveThreats[0]?.attack_log_id) setSelectedAttackLogId(liveThreats[0].attack_log_id)
   }, [liveThreats, setSelectedAttackLogId])
 
+  // Real-time Risk Velocity stream appender
+  const appendRiskPoint = useCallback((score, threatsCount) => {
+    if (score == null || isNaN(score)) return
+    const timeStr = new Date().toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    setChartHistory(prev => {
+      const numeric = Math.min(100, Math.max(0, Math.round(Number(score))))
+      const threats = threatsCount ?? combinedThreats.length
+      const last = prev[prev.length - 1]
+      if (last && last.time === timeStr && last.risk === numeric) {
+        return prev
+      }
+      return [...prev.slice(-24), { time: timeStr, risk: numeric, threats }]
+    })
+  }, [combinedThreats.length])
+
+  // Baseline seeding: ensure chart always has visible points immediately
   useEffect(() => {
     setChartHistory(prev => {
-      const entry = { time: new Date().toLocaleTimeString().slice(0, 5), risk: liveMetrics.risk_score || 0, threats: liveThreats.length }
-      return [...prev.slice(-19), entry]
+      if (prev.length >= 6) return prev
+      const now = Date.now()
+      const currentRisk = Math.round(Number(liveMetrics.risk_score ?? 0))
+      const basePoints = []
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now - i * 2000)
+        basePoints.push({
+          time: d.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          risk: currentRisk,
+          threats: combinedThreats.length,
+        })
+      }
+      return basePoints
     })
-  }, [liveMetrics, liveThreats])
+  }, [liveMetrics.risk_score, combinedThreats.length])
+
+  // Real-time smooth ticker: push current risk every 2s so the line streams live without refresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const currentRisk = liveMetrics.risk_score != null ? Number(liveMetrics.risk_score) : 0
+      appendRiskPoint(currentRisk)
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [liveMetrics.risk_score, appendRiskPoint])
+
+  // Real-time instantaneous spike when new attack or prediction arrives
+  useEffect(() => {
+    const handleMlp = (e) => {
+      const score = e.detail?.risk_score ?? e.detail?.prediction?.risk_score
+      if (score != null) appendRiskPoint(score)
+    }
+    const handleMetrics = (e) => {
+      const score = e.detail?.risk_score
+      if (score != null) appendRiskPoint(score)
+    }
+    const handleSocEvent = (e) => {
+      const score = e.detail?.data?.risk_score ?? e.detail?.risk_score
+      if (score != null) appendRiskPoint(score)
+    }
+
+    window.addEventListener("mlp-prediction", handleMlp)
+    window.addEventListener("live-metrics", handleMetrics)
+    window.addEventListener("soc-event", handleSocEvent)
+
+    return () => {
+      window.removeEventListener("mlp-prediction", handleMlp)
+      window.removeEventListener("live-metrics", handleMetrics)
+      window.removeEventListener("soc-event", handleSocEvent)
+    }
+  }, [appendRiskPoint])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Listen for clear-telemetry broadcast (e.g. from yarn clear or simulator reset)
+  useEffect(() => {
+    const handleClear = () => {
+      setLogs([])
+      setAlerts([])
+      setAttackDistrib([])
+      useAlertStore.getState().clearLiveThreats()
+      fetchAll()
+    }
+    window.addEventListener("clear-telemetry", handleClear)
+    return () => window.removeEventListener("clear-telemetry", handleClear)
+  }, [fetchAll])
 
   // Real-time telemetry auto-sync whenever live threat, soc-event, or scenario finishes
   useEffect(() => {
@@ -749,7 +837,9 @@ export default function SOCCommand() {
     return ok
   }
 
-  const topSev = liveThreats[0]?.severity || "LOW"
+
+
+  const topSev = combinedThreats[0]?.severity || "LOW"
   const THREAT_LEVELS = {
     CRITICAL: { label: "CRITICAL", color: "#ff2d55", cls: "bg-red-950/80 border-red-500/60 shadow-[0_0_12px_rgba(255,45,85,0.3)]" },
     HIGH:     { label: "HIGH",     color: "#ff9500", cls: "bg-orange-950/80 border-orange-500/60 shadow-[0_0_12px_rgba(255,149,0,0.3)]" },
@@ -765,12 +855,6 @@ export default function SOCCommand() {
   }))
 
   const unacknowledgedAlerts = alerts.filter(a => !a.is_acknowledged)
-
-  // Combined threats feed (live WebSocket threats + detected database logs)
-  const combinedThreats = [
-    ...liveThreats,
-    ...logs.filter(l => l.attack_type && l.attack_type !== "Normal" && !liveThreats.some(lt => String(lt.attack_log_id || lt.id) === String(l.id)))
-  ]
 
   // Filtered threats feed
   const filteredThreats = combinedThreats.filter(t => {
@@ -863,7 +947,7 @@ export default function SOCCommand() {
 
           {/* Row 1: KPI Stat Cards */}
           <div className="grid grid-cols-4 gap-2.5">
-            <MiniStat label="Live Threats" value={liveThreats.length} icon={AlertOctagon} color="red" sub={`${unacknowledgedAlerts.length} unacknowledged`} pulse={liveThreats.length > 0} />
+            <MiniStat label="Live Threats" value={combinedThreats.length} icon={AlertOctagon} color="red" sub={`${unacknowledgedAlerts.length} unacknowledged`} pulse={combinedThreats.length > 0} />
             <MiniStat label="Firewall Blocks" value={fwRules.length} icon={ShieldOff} color="orange" sub="active rules active" />
             <MiniStat label="System Health" value={`${liveMetrics.sys_health?.toFixed(0) ?? 98}%`} icon={Activity} color="green" pulse />
             <MiniStat label="Risk Score" value={liveMetrics.risk_score?.toFixed(0) ?? 0} icon={TrendingUp} color="cyan" sub="MLP inference engine" />
@@ -887,10 +971,10 @@ export default function SOCCommand() {
                         <stop offset="95%" stopColor="#00e5ff" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="time" tick={{ fontSize: 8, fill: "#64748b" }} />
+                    <XAxis dataKey="time" tick={{ fontSize: 8, fill: "#64748b" }} minTickGap={25} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 8, fill: "#64748b" }} />
                     <Tooltip contentStyle={{ background: "#070f1f", border: "1px solid #00e5ff", borderRadius: "6px", fontSize: 10, fontFamily: "monospace" }} />
-                    <Area type="monotone" dataKey="risk" stroke="#00e5ff" fill="url(#rg)" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="risk" stroke="#00e5ff" fill="url(#rg)" strokeWidth={2} dot={false} isAnimationActive={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -991,12 +1075,11 @@ export default function SOCCommand() {
                         </div>
                         <div className="cyber-card p-3 text-xs font-mono text-slate-300 leading-relaxed">{alert.message}</div>
                         {!alert.is_acknowledged ? (
-                          <button onClick={() => { acknowledgeAlert(alert.id); setDrawer(false) }}
-                            className="w-full py-2.5 bg-emerald-950/70 border border-emerald-500/60 text-emerald-300 font-mono text-xs rounded-lg hover:bg-emerald-900/80 transition cursor-pointer font-bold flex items-center justify-center gap-2">
-                            <CheckCircle size={14} /> Acknowledge & Mitigate Alert
-                          </button>
+                          <div className="p-2.5 rounded bg-black/40 border border-slate-700/60 text-center text-xs font-mono text-slate-400">
+                            Awaiting analyst review &amp; acknowledgement in <span className="text-cyber-cyan font-bold">Orchestration</span>
+                          </div>
                         ) : (
-                          <div className="p-2 rounded bg-white/5 text-center text-xs font-mono text-emerald-400">✓ Already Acknowledged</div>
+                          <div className="p-2 rounded bg-white/5 text-center text-xs font-mono text-emerald-400">✓ Acknowledged by Analyst</div>
                         )}
                       </div>
                     ))}

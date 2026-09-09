@@ -516,9 +516,9 @@ export default function Reports() {
                       </span>
                     </td>
                     <td className="py-2.5 px-3">
-                      <span className={`inline-flex items-center gap-1 font-bold text-[10px] ${isMitigated(inc) ? 'text-cyan' : 'text-amber-400'}`}>
-                        {isMitigated(inc) ? <CheckCircle2 size={11} /> : <Clock size={11} />}
-                        {status}
+                      <span className={`inline-flex items-center gap-1 font-bold text-[10px] ${status === 'ACKNOWLEDGED' ? 'text-cyan' : 'text-amber-400'}`}>
+                        {status === 'ACKNOWLEDGED' ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
+                        {status === 'ACKNOWLEDGED' ? 'ACKNOWLEDGED' : 'DETECTED'}
                       </span>
                     </td>
                   </tr>

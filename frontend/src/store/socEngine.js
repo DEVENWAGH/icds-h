@@ -5,6 +5,7 @@ import { useAlertStore } from './index'
 
 export const LIFECYCLE_STAGES = [
 'DETECTED',
+'ACKNOWLEDGED',
 'ANALYZING',
 'CONTAINMENT',
 'RECOVERY',
@@ -225,11 +226,15 @@ log.attack_type ??
 log.prediction_label ??
 'Unknown'
 
-const status =
-String(
+const rawStatus = String(
 log.status ??
 'DETECTED'
 ).toUpperCase()
+
+const status =
+rawStatus === 'ACKNOWLEDGED'
+  ? 'ACKNOWLEDGED'
+  : 'DETECTED'
 
 const stageIndex =
 LIFECYCLE_STAGES.indexOf(
@@ -573,11 +578,15 @@ init: async () => {
         normalizeIncident
       )
 
-    incidents.forEach((inc) => {
-      if (inc.is_threat && inc.attack_type !== 'Normal') {
-        useAlertStore.getState().addLiveThreat(inc)
-      }
-    })
+    if (rawLogs.length === 0) {
+      useAlertStore.getState().clearLiveThreats()
+    } else {
+      incidents.forEach((inc) => {
+        if (inc.is_threat && inc.attack_type !== 'Normal') {
+          useAlertStore.getState().addLiveThreat(inc)
+        }
+      })
+    }
 
     set({
       incidents,
@@ -811,6 +820,9 @@ refreshIncidents: async () => {
   try {
     const { data } = await api.get('/logs/latest?limit=100')
     const rawLogs = Array.isArray(data) ? data : []
+    if (rawLogs.length === 0) {
+      useAlertStore.getState().clearLiveThreats()
+    }
     set({
       incidents: rawLogs.map(normalizeIncident),
       lastTick: Date.now(),
@@ -818,6 +830,21 @@ refreshIncidents: async () => {
   } catch (error) {
     console.error('[SOC] Failed to refresh logs:', error)
   }
+},
+
+// =========================================================
+// ANALYST ACKNOWLEDGEMENT (HUMAN IN THE LOOP)
+// =========================================================
+
+acknowledgeThreat: async (attackLogId) => {
+  if (attackLogId == null) return false
+  try {
+    await api.patch(`/logs/${attackLogId}/acknowledge`)
+  } catch (err) {
+    console.warn('[SOC] Acknowledge endpoint warning:', err)
+  }
+  get().updateLifecycle(attackLogId, 'ACKNOWLEDGED')
+  return true
 },
 
 // =========================================================

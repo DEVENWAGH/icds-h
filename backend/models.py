@@ -34,7 +34,7 @@ class AttackLog(Base):
     protocol = Column(String(20))
     port = Column(Integer)
     severity = Column(Enum('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'))
-    status = Column(Enum('DETECTED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED'), default='DETECTED')
+    status = Column(Enum('DETECTED', 'ACKNOWLEDGED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED'), default='DETECTED')
     suspicious_score = Column(Float, default=0.0)
     mitre_technique_id = Column(String(50), nullable=True)
     mitre_technique_name = Column(String(150), nullable=True)
@@ -117,7 +117,7 @@ class Incident(Base):
     __tablename__ = "incidents"
     id = Column(Integer, primary_key=True, index=True)
     attack_id = Column(Integer, ForeignKey("attack_logs.id"), nullable=True)
-    status = Column(Enum('DETECTED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED'), default='DETECTED')
+    status = Column(Enum('DETECTED', 'ACKNOWLEDGED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED'), default='DETECTED')
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     mitre_technique_id = Column(String(50), nullable=True)
     mitre_technique_name = Column(String(150), nullable=True)

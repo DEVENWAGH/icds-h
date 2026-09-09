@@ -362,6 +362,10 @@ export function useWebSocket() {
                 msg.data || {}
               )
 
+            window.dispatchEvent(
+              new CustomEvent('live-metrics', { detail: msg.data || {} })
+            )
+
             return
           }
 
@@ -441,12 +445,30 @@ export function useWebSocket() {
 
           if (msg.type === 'clear_telemetry') {
             console.log('[WS] Clear telemetry broadcast received')
+
+            // Reset simulator console log
             useSimulatorStore.setState({
               log: [],
               stage: 'IDLE',
               lastResult: null,
               autoScenarioCount: 0,
             })
+
+            // Reset live threat feed so the UI reflects a clean state
+            useAlertStore.getState().clearLiveThreats()
+
+            // Clear SOC engine incidents
+            useSOCStore.setState({
+              incidents: [],
+              qigaRecommendations: {},
+              lastTick: Date.now(),
+            })
+
+            // Notify UI components (like SOCCommand) to reset logs and refetch
+            window.dispatchEvent(
+              new CustomEvent('clear-telemetry', { detail: msg })
+            )
+
             return
           }
 
