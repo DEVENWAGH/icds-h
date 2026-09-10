@@ -227,13 +227,12 @@ log.prediction_label ??
 'Unknown'
 
 const rawStatus = String(
-log.status ??
-'DETECTED'
+  log.status ??
+  'DETECTED'
 ).toUpperCase()
 
-const status =
-rawStatus === 'ACKNOWLEDGED'
-  ? 'ACKNOWLEDGED'
+const status = LIFECYCLE_STAGES.includes(rawStatus)
+  ? rawStatus
   : 'DETECTED'
 
 const stageIndex =

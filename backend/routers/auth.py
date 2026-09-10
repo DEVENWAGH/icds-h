@@ -106,7 +106,7 @@ def login(user_in: schemas.UserLogin, request: Request, db: Session = Depends(ge
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": schemas.UserOut.from_orm(user)
+        "user": schemas.UserOut.model_validate(user)
     }
 
 @router.get("/me", response_model=schemas.UserOut)

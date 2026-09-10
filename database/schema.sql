@@ -4,21 +4,20 @@
 CREATE DATABASE IF NOT EXISTS icds_h CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE icds_h;
 
--- Users table
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(100) NOT NULL,
+    full_name VARCHAR(100),
     email VARCHAR(150) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'analyst') DEFAULT 'analyst',
+    role ENUM('admin', 'analyst', 'clinical') DEFAULT 'analyst',
     is_active BOOLEAN DEFAULT TRUE,
     clearance_level INT DEFAULT 1,
     last_login DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    INDEX idx_users_email (email),
+    INDEX idx_users_role (role)
 );
 
--- Hospital Assets table
 CREATE TABLE IF NOT EXISTS hospital_assets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     asset_name VARCHAR(100) NOT NULL,
@@ -26,10 +25,10 @@ CREATE TABLE IF NOT EXISTS hospital_assets (
     ip_address VARCHAR(45),
     criticality ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') NOT NULL,
     status ENUM('ONLINE', 'OFFLINE', 'ISOLATED', 'COMPROMISED') DEFAULT 'ONLINE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_assets_status (status)
 );
 
--- Attack logs table
 CREATE TABLE IF NOT EXISTS attack_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     attack_type VARCHAR(100) NOT NULL,
@@ -38,7 +37,7 @@ CREATE TABLE IF NOT EXISTS attack_logs (
     protocol VARCHAR(20),
     port INT,
     severity ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') NOT NULL,
-    status ENUM('DETECTED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED') DEFAULT 'DETECTED',
+    status ENUM('DETECTED', 'ACKNOWLEDGED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED') DEFAULT 'DETECTED',
     suspicious_score FLOAT DEFAULT 0.0,
     mitre_technique_id VARCHAR(50),
     mitre_technique_name VARCHAR(150),
@@ -52,10 +51,12 @@ CREATE TABLE IF NOT EXISTS attack_logs (
     user_behavior_score FLOAT,
     detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at DATETIME,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_attack_status (status),
+    INDEX idx_attack_type (attack_type),
+    INDEX idx_attack_detected (detected_at)
 );
 
--- Alerts table
 CREATE TABLE IF NOT EXISTS alerts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     alert_type VARCHAR(100) NOT NULL,
@@ -68,10 +69,11 @@ CREATE TABLE IF NOT EXISTS alerts (
     acknowledged_at DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL,
-    FOREIGN KEY (acknowledged_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (acknowledged_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_alerts_ack (is_acknowledged),
+    INDEX idx_alerts_severity (severity)
 );
 
--- Risk scores table
 CREATE TABLE IF NOT EXISTS risk_scores (
     id INT AUTO_INCREMENT PRIMARY KEY,
     score FLOAT NOT NULL,
@@ -86,10 +88,10 @@ CREATE TABLE IF NOT EXISTS risk_scores (
     shap_values JSON,
     attack_log_id INT,
     computed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL
+    FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL,
+    INDEX idx_risk_computed (computed_at)
 );
 
--- Recommendations table
 CREATE TABLE IF NOT EXISTS recommendations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     attack_log_id INT,
@@ -100,6 +102,8 @@ CREATE TABLE IF NOT EXISTS recommendations (
     resource_cost VARCHAR(50),
     latency_impact VARCHAR(50),
     is_approved BOOLEAN DEFAULT FALSE,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    rank INT DEFAULT 1,
     approved_by INT,
     approved_at DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -107,14 +111,15 @@ CREATE TABLE IF NOT EXISTS recommendations (
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Recovery actions table
 CREATE TABLE IF NOT EXISTS recovery_actions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     recommendation_id INT,
     action_name VARCHAR(255) NOT NULL,
-    action_type ENUM('ISOLATE', 'BLOCK', 'RESTORE', 'RESET', 'PATCH') NOT NULL,
+    action_type ENUM('ISOLATE', 'BLOCK', 'RESTORE', 'RESET', 'PATCH', 'WAF_RULE', 'MONITOR_ENHANCED') NOT NULL,
     target_node VARCHAR(100),
     status ENUM('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED') DEFAULT 'PENDING',
+    progress_percent INT DEFAULT 0,
+    current_step VARCHAR(255),
     executed_by INT,
     execution_log TEXT,
     started_at DATETIME,
@@ -124,21 +129,20 @@ CREATE TABLE IF NOT EXISTS recovery_actions (
     FOREIGN KEY (executed_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Incidents table
 CREATE TABLE IF NOT EXISTS incidents (
     id INT AUTO_INCREMENT PRIMARY KEY,
     attack_id INT,
-    status ENUM('DETECTED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED') DEFAULT 'DETECTED',
+    status ENUM('DETECTED', 'ACKNOWLEDGED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED') DEFAULT 'DETECTED',
     assigned_to INT,
     mitre_technique_id VARCHAR(50),
     mitre_technique_name VARCHAR(150),
     opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     closed_at DATETIME,
     FOREIGN KEY (attack_id) REFERENCES attack_logs(id) ON DELETE SET NULL,
-    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_incident_status (status)
 );
 
--- Monitoring history table
 CREATE TABLE IF NOT EXISTS monitoring_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
     throughput_gbps FLOAT,
@@ -152,7 +156,6 @@ CREATE TABLE IF NOT EXISTS monitoring_history (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- QIGA Results table
 CREATE TABLE IF NOT EXISTS qiga_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
     attack_log_id INT,
@@ -175,7 +178,6 @@ CREATE TABLE IF NOT EXISTS qiga_results (
     FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL
 );
 
--- Attack Memory table
 CREATE TABLE IF NOT EXISTS attack_memory (
     id INT AUTO_INCREMENT PRIMARY KEY,
     attack_log_id INT,
@@ -191,14 +193,37 @@ CREATE TABLE IF NOT EXISTS attack_memory (
     FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL
 );
 
--- Seed default admin user (password: Admin@1234)
-INSERT INTO users (full_name, email, hashed_password, role, clearance_level)
-VALUES ('Dr. Aris Thorne', 'admin@icds-h.com',
-  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewRrBVhzPKvZfSwu',
-  'admin', 5)
-ON DUPLICATE KEY UPDATE id=id;
+CREATE TABLE IF NOT EXISTS firewall_rules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_address VARCHAR(45),
+    port INT,
+    protocol VARCHAR(20),
+    direction VARCHAR(10) DEFAULT 'INBOUND',
+    reason VARCHAR(255),
+    attack_type VARCHAR(100),
+    severity VARCHAR(20),
+    attack_log_id INT,
+    blocked_by VARCHAR(100) DEFAULT 'SYSTEM',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME,
+    FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL,
+    INDEX idx_fw_ip (ip_address),
+    INDEX idx_fw_active (is_active)
+);
 
--- Seed sample hospital assets
+CREATE TABLE IF NOT EXISTS anomaly_detections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    attack_log_id INT,
+    anomaly_score FLOAT,
+    is_anomaly BOOLEAN DEFAULT FALSE,
+    detector_type VARCHAR(50) DEFAULT 'IsolationForest',
+    dataset_source VARCHAR(100),
+    features_used JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (attack_log_id) REFERENCES attack_logs(id) ON DELETE SET NULL
+);
+
 INSERT INTO hospital_assets (asset_name, asset_type, ip_address, criticality, status) VALUES
 ('Oncology Database EMR', 'EMR Server', '10.0.0.20', 'CRITICAL', 'ONLINE'),
 ('Radiology PACS Server', 'Imaging System', '10.0.0.21', 'HIGH', 'ONLINE'),

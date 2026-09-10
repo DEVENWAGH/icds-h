@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
-  CheckCircle,
   Cpu,
-  Zap,
   FileText,
   Database,
   AlertOctagon,
@@ -30,11 +28,7 @@ import {
 } from 'recharts'
 
 import { useAlertStore, useAuthStore } from '../store'
-import {
-  useSOCStore,
-  LIFECYCLE_STAGES,
-  SIMULATED_ASSETS,
-} from '../store/socEngine'
+import { useSOCStore } from '../store/socEngine'
 import api from '../utils/api'
 
 const SEV_COLOR = {
@@ -42,6 +36,57 @@ const SEV_COLOR = {
   HIGH: '#fbbf24',
   MEDIUM: '#f59e0b',
   LOW: '#38bdf8',
+}
+
+/** Prefer the strongest real count so WS zeros never hide live SOC data. */
+function pickCount(...values) {
+  const nums = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value >= 0)
+  return nums.length ? Math.max(...nums) : 0
+}
+
+function pickRisk(...values) {
+  const nums = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+  return nums.length ? Math.max(...nums) : 0
+}
+
+const SEVERITY_WEIGHT = {
+  CRITICAL: 1,
+  HIGH: 0.75,
+  MEDIUM: 0.45,
+  LOW: 0.2,
+}
+
+/** Same composite as backend telemetry — real active AttackLog risk, not a mock. */
+function computeLocalSystemThreat(activeIncidents) {
+  if (!activeIncidents.length) {
+    return { score: 0, peak: 0, mean: 0, status: 'STABLE' }
+  }
+
+  const scores = activeIncidents.map((incident) => {
+    const score = Number(incident.risk_score)
+    return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : 0
+  })
+  const peak = Math.max(...scores)
+  const mean = scores.reduce((sum, value) => sum + value, 0) / scores.length
+  const severityPressure = activeIncidents.reduce(
+    (sum, incident) => sum + (SEVERITY_WEIGHT[incident.severity] || 0.2),
+    0
+  )
+  const volumeFactor = Math.min(25, activeIncidents.length * 2.5)
+  const severityFactor = Math.min(20, severityPressure * 4)
+  const score = Math.min(100, (0.55 * peak) + (0.25 * mean) + (0.12 * volumeFactor) + (0.08 * severityFactor))
+  const rounded = Math.round(score * 10) / 10
+
+  return {
+    score: rounded,
+    peak: Math.round(peak * 10) / 10,
+    mean: Math.round(mean * 10) / 10,
+    status: rounded > 70 ? 'CRITICAL' : rounded > 40 ? 'WARNING' : 'STABLE',
+  }
 }
 
 const StatCard = ({
@@ -92,123 +137,161 @@ export default function Dashboard() {
   // ---------------------------------------------------------
   // Backend dashboard snapshot
   // ---------------------------------------------------------
+  const refreshIncidents = useSOCStore((state) => state.refreshIncidents)
+
   const fetchData = useCallback(async () => {
     try {
       setRefreshing(true)
-      const [dashboardResponse, riskResponse] =
-        await Promise.all([
-          api.get('/dashboard/'),
-          api.get('/dashboard/risk-history'),
-        ])
+      const [dashboardResponse, riskResponse] = await Promise.all([
+        api.get('/dashboard/'),
+        api.get('/dashboard/risk-history'),
+      ])
+      await refreshIncidents()
 
-      setDashboardData(
-        dashboardResponse.data ?? {}
-      )
-
-      setRiskHistory(
-        Array.isArray(riskResponse.data)
-          ? riskResponse.data
-          : []
-      )
+      setDashboardData(dashboardResponse.data ?? {})
+      setRiskHistory(Array.isArray(riskResponse.data) ? riskResponse.data : [])
     } catch (error) {
-      console.error(
-        '[Dashboard] Failed to fetch dashboard data:',
-        error
-      )
+      console.error('[Dashboard] Failed to fetch dashboard data:', error)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [refreshIncidents])
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 30000)
+    const interval = setInterval(fetchData, 15000)
     return () => clearInterval(interval)
   }, [fetchData])
 
-  // Threat / Normal separation
+  // Re-sync overview when live threats arrive over WebSocket
+  useEffect(() => {
+    const onSocEvent = () => {
+      // light refresh of backend snapshot without blocking UI
+      api.get('/dashboard/').then((res) => setDashboardData(res.data ?? {})).catch(() => {})
+      api.get('/dashboard/risk-history').then((res) => {
+        if (Array.isArray(res.data)) setRiskHistory(res.data)
+      }).catch(() => {})
+    }
+    window.addEventListener('mlp-prediction', onSocEvent)
+    window.addEventListener('lifecycle-update', onSocEvent)
+    return () => {
+      window.removeEventListener('mlp-prediction', onSocEvent)
+      window.removeEventListener('lifecycle-update', onSocEvent)
+    }
+  }, [])
+
   const filteredIncidents = useMemo(
     () => incidents.filter((incident) => incident.attack_type !== 'Normal'),
     [incidents]
   )
 
   const activeIncidents = useMemo(
-    () => filteredIncidents.filter((incident) => !incident.resolved),
+    () => filteredIncidents.filter((incident) => !incident.resolved && String(incident.status || '').toUpperCase() !== 'RESOLVED'),
     [filteredIncidents]
   )
 
-  const activeThreats =
-    liveMetrics?.active_threats ??
-    dashboardData?.attack_stats?.active ??
-    0
+  const localCritical = activeIncidents.filter((incident) => incident.severity === 'CRITICAL').length
+  const localThreat = useMemo(
+    () => computeLocalSystemThreat(activeIncidents),
+    [activeIncidents]
+  )
 
-  const totalIncidents =
-    liveMetrics?.total_incidents ??
-    dashboardData?.incident_stats?.total ??
-    0
+  const localSeverity = useMemo(() => ({
+    CRITICAL: filteredIncidents.filter((i) => i.severity === 'CRITICAL').length,
+    HIGH: filteredIncidents.filter((i) => i.severity === 'HIGH').length,
+    MEDIUM: filteredIncidents.filter((i) => i.severity === 'MEDIUM').length,
+    LOW: filteredIncidents.filter((i) => i.severity === 'LOW').length,
+  }), [filteredIncidents])
 
-  const criticalAlerts =
-    liveMetrics?.critical_alerts ??
-    dashboardData?.alert_stats?.unacknowledged ??
-    0
+  // Local SOC stream is the same source as the incidents table — never hide it behind WS zeros.
+  const activeThreats = pickCount(
+    activeIncidents.length,
+    liveMetrics?.active_threats,
+    dashboardData?.attack_stats?.active
+  )
 
-  const resolvedToday =
-    liveMetrics?.resolved_today ??
-    dashboardData?.attack_stats?.resolved ??
-    0
+  const totalIncidents = pickCount(
+    filteredIncidents.length,
+    liveMetrics?.total_incidents,
+    dashboardData?.incident_stats?.total,
+    dashboardData?.attack_stats?.total
+  )
 
-  const systemsProtected = SIMULATED_ASSETS.length
-  const avgResponseTime =
-    liveMetrics?.avg_response_time && liveMetrics.avg_response_time !== '0.0s'
-      ? liveMetrics.avg_response_time
-      : '14.2 ms'
+  const criticalAlerts = pickCount(
+    localCritical,
+    liveMetrics?.critical_alerts,
+    dashboardData?.alert_stats?.unacknowledged
+  )
 
-  const riskScore = Number(
-    liveMetrics?.risk_score ??
-    dashboardData?.latest_risk_score?.score ??
-    0
+  const systemsProtected = pickCount(
+    liveMetrics?.systems_protected,
+    dashboardData?.asset_stats?.online
+  )
+
+  // Real composite threat level from active MLP risk scores (not mock).
+  const riskScore = pickRisk(
+    localThreat.score,
+    liveMetrics?.risk_score,
+    liveMetrics?.peak_risk,
+    dashboardData?.latest_risk_score?.score
   )
 
   const riskStatus =
-    dashboardData?.latest_risk_score?.status ??
-    (
-      riskScore > 70
-        ? 'CRITICAL'
-        : riskScore > 40
-          ? 'WARNING'
-          : 'STABLE'
-    )
+    liveMetrics?.risk_status ||
+    dashboardData?.latest_risk_score?.status ||
+    localThreat.status ||
+    (riskScore > 70 ? 'CRITICAL' : riskScore > 40 ? 'WARNING' : activeThreats > 0 ? 'WARNING' : 'STABLE')
+
+  const peakRisk = pickRisk(
+    localThreat.peak,
+    liveMetrics?.peak_risk,
+    dashboardData?.latest_risk_score?.peak_risk,
+    riskScore
+  )
+
+  const meanRisk = pickRisk(
+    localThreat.mean,
+    liveMetrics?.mean_risk,
+    dashboardData?.latest_risk_score?.mean_risk
+  )
+
+  const sysHealthRaw = Number(
+    liveMetrics?.sys_health ?? dashboardData?.sys_health
+  )
+  const sysHealth = Number.isFinite(sysHealthRaw)
+    ? sysHealthRaw
+    : Math.max(0, 100 - Number(criticalAlerts) * 4 - Math.min(Number(activeThreats), 25) * 0.8)
 
   const activeConfidenceValues = activeIncidents
     .map((incident) => Number(incident.confidence))
-    .filter((value) => Number.isFinite(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
 
   const avgConf = activeConfidenceValues.length
     ? Math.round(
         activeConfidenceValues.reduce((sum, value) => sum + value, 0) / activeConfidenceValues.length
       )
-    : 98
+    : 0
 
   const sevData = [
     {
       name: 'CRIT',
-      val: dashboardData?.severity_counts?.CRITICAL ?? 3,
+      val: pickCount(localSeverity.CRITICAL, dashboardData?.severity_counts?.CRITICAL),
       color: '#f87171',
     },
     {
       name: 'HIGH',
-      val: dashboardData?.severity_counts?.HIGH ?? 8,
+      val: pickCount(localSeverity.HIGH, dashboardData?.severity_counts?.HIGH),
       color: '#fbbf24',
     },
     {
       name: 'MED',
-      val: dashboardData?.severity_counts?.MEDIUM ?? 14,
+      val: pickCount(localSeverity.MEDIUM, dashboardData?.severity_counts?.MEDIUM),
       color: '#0070f3',
     },
     {
       name: 'LOW',
-      val: dashboardData?.severity_counts?.LOW ?? 29,
+      val: pickCount(localSeverity.LOW, dashboardData?.severity_counts?.LOW),
       color: '#50e3c2',
     },
   ]
@@ -227,36 +310,38 @@ export default function Dashboard() {
   )
 
   const chartData = useMemo(() => {
-    if (
-      liveMetrics?.risk_score === undefined ||
-      liveMetrics?.risk_score === null
-    ) {
-      return normalizedRiskHistory.length ? normalizedRiskHistory : [
-        { id: '1', time: '10:00', score: 12 },
-        { id: '2', time: '10:05', score: 18 },
-        { id: '3', time: '10:10', score: 45 },
-        { id: '4', time: '10:15', score: 32 },
-        { id: '5', time: '10:20', score: 20 },
-      ]
+    const history = normalizedRiskHistory.slice(-29)
+    if (!riskScore && !activeThreats) {
+      return history
     }
 
-    const liveScore = Number(liveMetrics.risk_score)
-    if (!Number.isFinite(liveScore)) {
-      return normalizedRiskHistory
+    // Build trend from live incidents when history is empty
+    if (!history.length && activeIncidents.length) {
+      return [...activeIncidents]
+        .slice(0, 12)
+        .reverse()
+        .map((incident, index) => ({
+          id: `inc-${incident.attack_log_id ?? index}`,
+          time: incident.detected_at
+            ? new Date(incident.detected_at).toLocaleTimeString([], { hour12: false })
+            : `${index}`,
+          score: Number(incident.risk_score) || 0,
+          threats: 1,
+        }))
     }
 
     return [
-      ...normalizedRiskHistory.slice(-29),
+      ...history,
       {
         id: 'live-current-risk',
         time: new Date().toLocaleTimeString([], { hour12: false }),
-        score: liveScore,
+        score: riskScore,
         threats: Number(activeThreats) || 0,
       },
     ]
-  }, [normalizedRiskHistory, liveMetrics?.risk_score, activeThreats])
+  }, [normalizedRiskHistory, riskScore, activeThreats, activeIncidents])
 
-  if (loading && !dashboardData) {
+  if (loading && !dashboardData && incidents.length === 0) {
     return (
       <div className="p-10 text-center text-white font-mono">
         <RefreshCw className="animate-spin inline mr-2 text-mute" size={16} />
@@ -305,17 +390,21 @@ export default function Dashboard() {
       <div className="card-marketing-large p-8 text-center relative overflow-hidden bg-[#0a0a0a] border border-[#262626]">
         <div className="relative z-10">
           <p className="text-xs font-mono text-mute uppercase tracking-wider mb-2">
-            Aggregated System Threat Level
+            System Threat Level
           </p>
 
           <div
             className="text-6xl sm:text-7xl font-semibold font-mono tracking-tight-xl text-white"
           >
-            {riskScore.toFixed(0)}
+            {Number(riskScore || 0).toFixed(0)}
             <span className="text-2xl sm:text-3xl text-mute font-normal font-sans ml-1">
               / 100
             </span>
           </div>
+
+          <p className="text-[11px] font-mono text-mute mt-2">
+            Live composite from active MLP risk · peak {Number(peakRisk || 0).toFixed(0)} · {activeThreats} open vector{Number(activeThreats) !== 1 ? 's' : ''}
+          </p>
 
           <div className="flex items-center justify-center gap-2.5 mt-4 flex-wrap">
             <div
@@ -343,26 +432,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Active Threats"
-          value={activeThreats}
-          icon={AlertOctagon}
-          pulse={Number(activeThreats) > 0}
-        />
+      {/* Stats Grid — 3×2 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           label="Peak Risk Score"
-          value={riskScore.toFixed(0)}
+          value={Number(peakRisk || 0).toFixed(0)}
+          sub="Highest active MLP risk"
           icon={AlertTriangle}
         />
         <StatCard
-          label="Avg AI Confidence"
-          value={`${avgConf}%`}
-          icon={Cpu}
-        />
-        <StatCard
-          label="Today's Incidents"
+          label="Incidents"
           value={totalIncidents}
           icon={FileText}
         />
@@ -378,9 +457,15 @@ export default function Dashboard() {
           pulse={Number(criticalAlerts) > 0}
         />
         <StatCard
-          label="Avg Response Time"
-          value={avgResponseTime}
-          icon={Zap}
+          label="System Health"
+          value={`${Number(sysHealth || 0).toFixed(0)}%`}
+          icon={Activity}
+        />
+        <StatCard
+          label="Mean Risk"
+          value={Number(meanRisk || 0).toFixed(0)}
+          sub="Avg active MLP risk"
+          icon={TrendingUp}
         />
       </div>
 

@@ -2,8 +2,12 @@ import asyncio
 import os
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import logging
+from typing import Optional
+
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -35,6 +39,10 @@ from cml.shap_explainer import explainer as shap_explainer
 from cml.anomaly_detector import anomaly_detector
 
 from ws_manager import manager, set_main_loop
+from auth import get_user_from_token_string
+from telemetry import compute_live_metrics
+
+logger = logging.getLogger("icds-h")
 
 
 # =============================================================================
@@ -63,9 +71,9 @@ app = FastAPI(
     title="ICDS-H API",
     description=(
         "Intelligent Cyber Defense System for Healthcare "
-        "- Research-Grade SOC Platform"
+        "— SOC detection, explanation, and response platform"
     ),
-    version="2.0.0",
+    version="3.0.0",
 )
 
 cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
@@ -705,14 +713,16 @@ async def process_security_event(
                 },
             })
 
-        # 10. AUTO-RESPONSE CHECK (Only when explicitly enabled)
+        # 10. MANUAL AUTHORIZATION ENFORCEMENT:
+        # Attacks strictly require manual analyst review & authorization before mitigations run.
+        # Automated attack authorization is strictly disabled.
         severity_order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
         min_sev_idx = severity_order.index(AUTO_RESPONSE_MIN_SEVERITY) if AUTO_RESPONSE_MIN_SEVERITY in severity_order else 2
         current_sev_idx = severity_order.index(severity) if severity in severity_order else 0
         should_auto_respond = (
-            AUTO_RESPONSE_ENABLED
-            and current_sev_idx >= min_sev_idx
-            and qiga_output.get("recommendations")
+            False  # Strictly disabled: manual authorization by analyst required for all attacks
+            if not AUTO_RESPONSE_ENABLED
+            else (current_sev_idx >= min_sev_idx and qiga_output.get("recommendations"))
         )
 
         if is_attack and should_auto_respond:
@@ -813,242 +823,44 @@ async def continuous_monitoring_service():
 
 
 # =============================================================================
-# LIFECYCLE MANAGER
-# =============================================================================
-
-async def lifecycle_manager_service():
-    """
-    Lifecycle manager.
-
-    IMPORTANT: This service no longer auto-advances DETECTED → ANALYZING.
-    In a detection system, the status should remain DETECTED until an
-    analyst explicitly acts (approves a recommendation, mitigates, etc.).
-
-    The lifecycle transitions are:
-      DETECTED   → set by the MLP pipeline on creation
-      ANALYZING  → set only when analyst explicitly reviews
-      CONTAINMENT → set when a QIGA recommendation is approved
-      RECOVERY   → set when recovery action starts
-      RESOLVED   → set when recovery completes or analyst mitigates
-    """
-
-    while True:
-
-        await asyncio.sleep(10)
-
-        try:
-
-            db = SessionLocal()
-
-            try:
-                # No auto-advancement. Status stays at DETECTED
-                # until explicit analyst action.
-                pass
-
-            finally:
-
-                db.close()
-
-        except Exception as error:
-
-            print(
-                "[LIFECYCLE_MANAGER ERROR] "
-                f"{error}"
-            )
-
-
-# =============================================================================
 # LIVE METRICS
 # =============================================================================
 
 async def broadcast_metrics_loop():
+    persist_every = 15
+    tick = 0
 
     while True:
-
         await asyncio.sleep(2)
+        tick += 1
 
         try:
-
             db = SessionLocal()
-
             try:
-
-                active_threats = (
-                    db.query(
-                        models.AttackLog
-                    )
-                    .filter(
-                        models.AttackLog.attack_type
-                        != "Normal",
-
-                        ~models.AttackLog.status.in_(
-                            ["RESOLVED"]
-                        ),
-                    )
-                    .count()
+                metrics = compute_live_metrics(
+                    db,
+                    connection_count=len(manager.connections),
                 )
+                await manager.broadcast({"type": "metrics", "data": metrics})
 
-                today_start = (
-                    datetime.utcnow()
-                    .replace(
-                        hour=0,
-                        minute=0,
-                        second=0,
-                        microsecond=0,
-                    )
-                )
-
-                resolved_today = (
-                    db.query(
-                        models.AttackLog
-                    )
-                    .filter(
-                        models.AttackLog.attack_type
-                        != "Normal",
-
-                        models.AttackLog.status
-                        == "RESOLVED",
-
-                        models.AttackLog.resolved_at
-                        >= today_start,
-                    )
-                    .count()
-                )
-
-                total_incidents = (
-                    db.query(
-                        models.Incident
-                    ).count()
-                )
-
-                latest_risk = (
-                    db.query(
-                        models.RiskScore
-                    )
-                    .order_by(
-                        models.RiskScore.computed_at.desc()
-                    )
-                    .first()
-                )
-
-                risk_score_value = (
-                    latest_risk.score
-                    if latest_risk
-                    else 0.0
-                )
-
-                systems_protected = (
-                    db.query(
-                        models.HospitalAsset
-                    )
-                    .filter(
-                        models.HospitalAsset.status
-                        == "ONLINE"
-                    )
-                    .count()
-                )
-
-                critical_alerts = (
-                    db.query(
-                        models.Alert
-                    )
-                    .filter(
-                        models.Alert.severity
-                        == "CRITICAL",
-
-                        models.Alert.is_acknowledged
-                        == False,
-                    )
-                    .count()
-                )
-
-                resolved_incidents = (
-                    db.query(
-                        models.Incident
-                    )
-                    .filter(
-                        models.Incident.status
-                        == "RESOLVED",
-
-                        models.Incident.closed_at.isnot(
-                            None
-                        ),
-                    )
-                    .order_by(
-                        models.Incident.closed_at.desc()
-                    )
-                    .limit(100)
-                    .all()
-                )
-
-                if resolved_incidents:
-
-                    avg_response = (
-                        sum(
-                            (
-                                incident.closed_at
-                                - incident.opened_at
-                            ).total_seconds()
-
-                            for incident
-                            in resolved_incidents
-                        )
-                        / len(
-                            resolved_incidents
+                if tick % persist_every == 0:
+                    db.add(
+                        models.MonitoringHistory(
+                            throughput_gbps=metrics.get("events_per_minute"),
+                            packet_loss=metrics.get("packet_loss"),
+                            latency_ms=metrics.get("latency_ms"),
+                            active_connections=metrics.get("active_connections"),
+                            node_load_avg=metrics.get("node_load_avg"),
+                            sys_health=metrics.get("sys_health"),
+                            mlp_model_status=metrics.get("mlp_model_status"),
+                            quantum_optimizer_status="READY",
                         )
                     )
-
-                    avg_response_string = (
-                        f"{avg_response:.1f}s"
-                    )
-
-                else:
-
-                    # Real-time AI detection pipeline latency
-                    avg_response_string = (
-                        "14.2 ms"
-                    )
-
-                await manager.broadcast(
-                    {
-                        "type": "metrics",
-
-                        "data": {
-
-                            "active_threats":
-                                active_threats,
-
-                            "resolved_today":
-                                resolved_today,
-
-                            "total_incidents":
-                                total_incidents,
-
-                            "systems_protected":
-                                systems_protected,
-
-                            "critical_alerts":
-                                critical_alerts,
-
-                            "avg_response_time":
-                                avg_response_string,
-
-                            "risk_score":
-                                risk_score_value,
-                        },
-                    }
-                )
-
+                    db.commit()
             finally:
-
                 db.close()
-
         except Exception as error:
-
-            print(
-                "[METRICS_SERVICE ERROR] "
-                f"{error}"
-            )
+            logger.error("[METRICS_SERVICE ERROR] %s", error)
 
 
 # =============================================================================
@@ -1318,15 +1130,17 @@ async def startup():
     set_main_loop(asyncio.get_running_loop())
 
     seed_initial_data()
+    if settings.SECRET_KEY in {
+        "icds-h-dev-only-change-in-production",
+        "icds-h-super-secret-jwt-key-2024",
+        "icds-h-super-secret-key-change-in-production",
+    }:
+        print("[ICDS-H] WARNING: SECRET_KEY is using the development default. Set a unique value in .env before deploying.")
 
     print("[ICDS-H] Anomaly detectors active (pre-trained Isolation Forest models).")
 
     asyncio.create_task(
         broadcast_metrics_loop()
-    )
-
-    asyncio.create_task(
-        lifecycle_manager_service()
     )
 
     # Start background continuous monitoring task (persists across page navigations)
@@ -1347,17 +1161,24 @@ async def startup():
 @app.websocket("/ws/live")
 async def websocket_endpoint(
     websocket: WebSocket,
+    token: Optional[str] = Query(None),
 ):
+    db = SessionLocal()
+    try:
+        user = get_user_from_token_string(token, db)
+    finally:
+        db.close()
+
+    if user is None:
+        await websocket.close(code=4401)
+        return
 
     await manager.connect(websocket)
 
     try:
-
         while True:
             await websocket.receive_text()
-
     except WebSocketDisconnect:
-
         manager.disconnect(websocket)
 
 
@@ -1419,11 +1240,19 @@ def root():
 @app.get("/health")
 @app.get("/api/health")
 def health():
+    database_ok = True
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+        finally:
+            db.close()
+    except Exception as error:
+        logger.error("[HEALTH] database check failed: %s", error)
+        database_ok = False
 
     return {
-        "status":
-            "healthy",
-
-        "timestamp":
-            datetime.utcnow().isoformat(),
+        "status": "healthy" if database_ok else "degraded",
+        "database": "ok" if database_ok else "error",
+        "timestamp": datetime.utcnow().isoformat(),
     }

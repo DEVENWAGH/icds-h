@@ -2,7 +2,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./icds_h.db"
-    SECRET_KEY: str = "icds-h-super-secret-jwt-key-2024"
+    # Override in .env for any non-local deployment. Default is for local development only.
+    SECRET_KEY: str = "icds-h-dev-only-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     

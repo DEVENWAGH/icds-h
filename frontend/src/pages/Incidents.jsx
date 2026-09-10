@@ -3,10 +3,11 @@ import { AlertOctagon, RefreshCw, CheckCircle } from 'lucide-react'
 import { useAuthStore, useIncidentStore } from '../store'
 import { useSOCStore } from '../store/socEngine'
 
-const STAGES = ['DETECTED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED']
+const STAGES = ['DETECTED', 'ACKNOWLEDGED', 'ANALYZING', 'CONTAINMENT', 'RECOVERY', 'RESOLVED']
 
 const STATUS_CONFIG = {
   DETECTED:    { color: 'text-red-400',    bg: 'bg-red-900/20 border-red-700/50' },
+  ACKNOWLEDGED:{ color: 'text-amber-400',  bg: 'bg-amber-900/20 border-amber-700/50' },
   ANALYZING:   { color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700/50' },
   CONTAINMENT: { color: 'text-orange-400', bg: 'bg-orange-900/20 border-orange-700/50' },
   RECOVERY:    { color: 'text-blue-400',   bg: 'bg-blue-900/20 border-blue-700/50' },
@@ -23,6 +24,7 @@ export default function Incidents() {
 
   const counts = {
     DETECTED:    allIncidents.filter(i => i.status === 'DETECTED').length,
+    ACKNOWLEDGED:allIncidents.filter(i => i.status === 'ACKNOWLEDGED').length,
     ANALYZING:   allIncidents.filter(i => i.status === 'ANALYZING').length,
     CONTAINMENT: allIncidents.filter(i => i.status === 'CONTAINMENT').length,
     RECOVERY:    allIncidents.filter(i => i.status === 'RECOVERY').length,
@@ -34,7 +36,7 @@ export default function Incidents() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-white">Incident Management</h1>
-          <p className="text-xs text-gray-500 font-mono mt-1">MITRE ATT&CK correlated · TON_IoT · PhiUSIIL · CERT r4 · CICIDS-2017 · Auto-lifecycle progression</p>
+          <p className="text-xs text-gray-500 font-mono mt-1">MITRE ATT&CK correlated · TON_IoT · PhiUSIIL · CERT</p>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-cyber-green">
           <span className="w-2 h-2 rounded-full bg-cyber-green pulse-dot" />
@@ -43,7 +45,7 @@ export default function Incidents() {
       </div>
 
       {/* Lifecycle stage summary cards */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {Object.entries(counts).map(([status, count]) => {
           const cfg = STATUS_CONFIG[status] || {}
           return (
@@ -64,7 +66,7 @@ export default function Incidents() {
           {STAGES.map((stage, i) => {
             const statusKey = stage.toUpperCase()
             const count = counts[statusKey] || 0
-            const colors = ['#ff2d55', '#ffd60a', '#ff9500', '#0066ff', '#00ff88']
+            const colors = ['#ff2d55', '#fbbf24', '#ffd60a', '#ff9500', '#0066ff', '#00ff88']
             return (
               <React.Fragment key={stage}>
                 <div className="flex-1 text-center">

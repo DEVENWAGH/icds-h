@@ -74,7 +74,9 @@ export default function Layout() {
                 <span className="w-2 h-2 rounded-full bg-cyan pulse-dot" />
                 <span className="text-body font-mono text-[11px]">SYS HEALTH</span>
               </span>
-              <span className="text-white font-mono font-semibold text-[11px]">{liveMetrics.sys_health?.toFixed(1) ?? '99.4'}%</span>
+              <span className="text-white font-mono font-semibold text-[11px]">
+                {Number.isFinite(liveMetrics.sys_health) ? `${liveMetrics.sys_health.toFixed(1)}%` : '—'}
+              </span>
             </div>
             {latestThreat ? (
               <div className="flex items-center justify-between text-xs pt-1 border-t border-[#262626]">

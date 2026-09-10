@@ -4,7 +4,7 @@ services:
   db:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: icdsroot
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-icdsroot}
       MYSQL_DATABASE: icds_h
     ports:
       - "3306:3306"
@@ -21,8 +21,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: mysql+pymysql://root:icdsroot@db:3306/icds_h
-      SECRET_KEY: icds-h-super-secret-key-change-in-production
+      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-icdsroot}@db:3306/icds_h
+      SECRET_KEY: ${SECRET_KEY:-icds-h-dev-only-change-in-production}
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     depends_on:
       db:
         condition: service_healthy
@@ -34,6 +35,8 @@ services:
     build: ./frontend
     ports:
       - "5173:5173"
+    environment:
+      VITE_API_TARGET: http://backend:8000
     depends_on:
       - backend
     volumes:

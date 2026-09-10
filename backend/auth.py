@@ -36,6 +36,21 @@ def decode_access_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
+def get_user_from_token_string(token: Optional[str], db: Session):
+    """Resolve a bearer/query JWT to an active User, or None. Used by WebSocket auth."""
+    if not token:
+        return None
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    email = payload.get("sub")
+    if not email:
+        return None
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user is None or not user.is_active:
+        return None
+    return user
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -52,6 +67,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
         raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
     return user
 
 def require_role(allowed_roles: List[str]):

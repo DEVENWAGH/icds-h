@@ -498,7 +498,7 @@ export default function Reports() {
                       {risk}
                     </td>
                     <td className="py-2.5 px-3 text-body group-hover:text-white font-mono">
-                      {inc.source_ip || inc.user || inc.url || '10.0.0.X'}
+                      {inc.source_ip || inc.user || inc.url || 'N/A'}
                     </td>
                     <td className="py-2.5 px-3 text-body group-hover:text-white">
                       {inc.department || inc.pc || 'Hospital Core'}
@@ -657,7 +657,7 @@ export default function Reports() {
                         <td className="p-1.5 font-bold" style={{ color: inc.severity === 'CRITICAL' ? '#b91c1c' : inc.severity === 'HIGH' ? '#b45309' : '#047857' }}>
                           {inc.severity}
                         </td>
-                        <td className="p-1.5">{inc.source_ip || inc.user || '10.0.0.X'}</td>
+                        <td className="p-1.5">{inc.source_ip || inc.user || 'N/A'}</td>
                         <td className="p-1.5">{inc.department || 'Hospital Core'}</td>
                         <td className="p-1.5 font-bold">{Math.round(inc.risk_score || 0)}/100</td>
                         <td className="p-1.5">{isMitigated(inc) ? 'RESOLVED' : 'ACTIVE'}</td>

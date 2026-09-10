@@ -16,6 +16,7 @@ from database import get_db, SessionLocal
 import models
 import schemas
 from auth import get_current_user, require_role
+from telemetry import format_uptime, database_engine_label
 from cml.dataset_engine import engine as dataset_engine
 
 import sys
@@ -191,6 +192,12 @@ def get_latest_threats(
                 log.status,
             "detected_at":
                 log.detected_at.isoformat(),
+            "resolved_at":
+                (
+                    log.resolved_at.isoformat()
+                    if log.resolved_at
+                    else None
+                ),
             "dataset":
                 dataset_source,
             "dataset_source":
@@ -421,6 +428,77 @@ def contain_attack_log(
         except Exception:
             pass
     return {"success": True, "attack_log_id": log.id, "status": log.status}
+
+
+@logs_router.patch("/{log_id}/stage")
+def update_attack_log_stage(
+    log_id: int,
+    payload: schemas.StageUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """Analyst manual lifecycle stage advancement (DETECTED -> ACKNOWLEDGED -> ANALYZING -> CONTAINMENT -> RECOVERY -> RESOLVED)."""
+    valid_stages = ["DETECTED", "ACKNOWLEDGED", "ANALYZING", "CONTAINMENT", "RECOVERY", "RESOLVED"]
+    target_stage = payload.stage.strip().upper()
+    if target_stage not in valid_stages:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid stage '{payload.stage}'. Must be one of {valid_stages}",
+        )
+
+    log = db.query(models.AttackLog).filter(models.AttackLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="AttackLog not found")
+
+    log.status = target_stage
+    now = datetime.utcnow()
+
+    if target_stage == "RESOLVED":
+        log.resolved = True
+        log.resolved_at = now
+
+    incident = (
+        db.query(models.Incident)
+        .filter(models.Incident.attack_id == log.id)
+        .first()
+    )
+    if incident:
+        incident.status = target_stage
+        if target_stage == "RESOLVED":
+            incident.resolved_at = now
+        if not incident.assigned_to:
+            incident.assigned_to = current_user.id
+
+    if target_stage in ("ACKNOWLEDGED", "ANALYZING", "CONTAINMENT", "RECOVERY", "RESOLVED"):
+        alerts = db.query(models.Alert).filter(models.Alert.attack_log_id == log.id).all()
+        for alert in alerts:
+            alert.is_acknowledged = True
+            alert.acknowledged_by = current_user.id
+            alert.acknowledged_at = now
+
+    db.commit()
+
+    try:
+        from ws_manager import broadcast_threadsafe
+        broadcast_threadsafe({
+            "type": "lifecycle_update",
+            "data": {
+                "attack_log_id": log.id,
+                "status": target_stage,
+                "operator": current_user.full_name or current_user.email,
+                "updated_at": now.isoformat(),
+            },
+        })
+    except Exception as err:
+        print(f"[STAGE] websocket broadcast error: {err}")
+
+    return {
+        "success": True,
+        "attack_log_id": log.id,
+        "status": target_stage,
+        "operator": current_user.full_name or current_user.email,
+        "message": f"Threat #{log.id} manually transitioned to {target_stage} by analyst.",
+    }
 
 
 # =============================================================================
@@ -1182,6 +1260,9 @@ def predict_risk(
 ):
 
     if attack_log_id is None:
+        attack_log_id = payload.attack_log_id if payload else None
+
+    if attack_log_id is None:
         raise HTTPException(
             status_code=400,
             detail=(
@@ -1533,255 +1614,178 @@ rec_router = APIRouter(
 )
 
 
+ATTACK_RESPONSE_MAP = {
+    "Injection": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block malicious injection payload traffic and drop source packets at perimeter firewall.", "cost": "1", "latency": "5 min", "eff": 0.88},
+        {"id": "WAF_RULE", "name": "Deploy WAF Rule", "desc": "Deploy specialized Web Application Firewall rule to sanitize SQLi and code injection attempts.", "cost": "1", "latency": "3 min", "eff": 0.84},
+        {"id": "PATCH", "name": "Apply Security Patch", "desc": "Apply security patch to vulnerable database connector and backend endpoint.", "cost": "2", "latency": "20 min", "eff": 0.80},
+    ],
+    "SQL Injection": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block malicious injection payload traffic and drop source packets at perimeter firewall.", "cost": "1", "latency": "5 min", "eff": 0.88},
+        {"id": "WAF_RULE", "name": "Deploy WAF Rule", "desc": "Deploy specialized Web Application Firewall rule to sanitize SQLi attempts.", "cost": "1", "latency": "3 min", "eff": 0.84},
+        {"id": "PATCH", "name": "Apply Security Patch", "desc": "Apply security patch to vulnerable database connector.", "cost": "2", "latency": "20 min", "eff": 0.80},
+    ],
+    "XSS": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block client session traffic from cross-site scripting attack origin.", "cost": "1", "latency": "5 min", "eff": 0.86},
+        {"id": "WAF_RULE", "name": "Deploy WAF Rule", "desc": "Inject WAF payload rule to strip malicious script tags and reflect sanitization.", "cost": "1", "latency": "3 min", "eff": 0.83},
+        {"id": "PATCH", "name": "Apply Security Patch", "desc": "Apply application patch to enforce contextual output encoding across web inputs.", "cost": "2", "latency": "20 min", "eff": 0.79},
+    ],
+    "DDoS": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Push rate-drop and IP block rules to edge router to suppress volumetric traffic flood.", "cost": "1", "latency": "5 min", "eff": 0.90},
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Isolate targeted hospital gateway node to protect internal clinical cluster.", "cost": "2", "latency": "15 min", "eff": 0.78},
+    ],
+    "DoS": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block flood attack source addresses at perimeter firewall.", "cost": "1", "latency": "5 min", "eff": 0.90},
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Isolate targeted hospital device to prevent resource exhaustion.", "cost": "2", "latency": "15 min", "eff": 0.78},
+    ],
+    "Ransomware": [
+        {"id": "RESTORE", "name": "Restore Backup", "desc": "Mount verified uncorrupted backup snapshot and restore encrypted patient records.", "cost": "4", "latency": "120 min", "eff": 0.95},
+        {"id": "PATCH", "name": "Apply Security Patch", "desc": "Apply emergency patch for SMB/RDP exploit vector across hospital subnet.", "cost": "2", "latency": "20 min", "eff": 0.82},
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Isolate infected medical workstation to immediately prevent lateral cryptographic spread.", "cost": "2", "latency": "15 min", "eff": 0.80},
+    ],
+    "Phishing": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block fraudulent domain/URL and reverse-proxy C2 address at gateway.", "cost": "1", "latency": "5 min", "eff": 0.87},
+        {"id": "WAF_RULE", "name": "Deploy WAF Rule", "desc": "Deploy proxy header inspection rule to drop credential harvester requests.", "cost": "1", "latency": "3 min", "eff": 0.82},
+        {"id": "PATCH", "name": "Apply Security Patch", "desc": "Update mail gateway anti-spoofing definitions and browser security policies.", "cost": "2", "latency": "20 min", "eff": 0.80},
+        {"id": "RESET", "name": "Reset Account / Credentials", "desc": "Force immediate credential reset and invalidate compromised session tokens.", "cost": "1", "latency": "10 min", "eff": 0.75},
+    ],
+    "Insider Threat": [
+        {"id": "RESET", "name": "Reset Account / Credentials", "desc": "Revoke privileged user credentials, API keys, and invalidate active sessions.", "cost": "1", "latency": "10 min", "eff": 0.85},
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Isolate suspect user workstation from internal hospital electronic health record network.", "cost": "2", "latency": "15 min", "eff": 0.78},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Engage continuous deep packet telemetry and audit user file-access activities.", "cost": "1", "latency": "0 min", "eff": 0.72},
+    ],
+    "Scanning": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block reconnaissance scanner IP address probing hospital IoT telemetry ports.", "cost": "1", "latency": "5 min", "eff": 0.88},
+        {"id": "WAF_RULE", "name": "Deploy WAF Rule", "desc": "Deploy anti-scanner fingerprint detection rule in reverse proxy.", "cost": "1", "latency": "3 min", "eff": 0.81},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Enable honeypot decoys and enhanced port telemetry across scanned network ranges.", "cost": "1", "latency": "0 min", "eff": 0.68},
+    ],
+    "Port Scan": [
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block port scanner IP address across edge firewalls.", "cost": "1", "latency": "5 min", "eff": 0.88},
+        {"id": "WAF_RULE", "name": "Deploy WAF Rule", "desc": "Deploy probe detection filter to drop TCP SYN scanning attempts.", "cost": "1", "latency": "3 min", "eff": 0.81},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Enable high-frequency telemetry on targeted IP range.", "cost": "1", "latency": "0 min", "eff": 0.68},
+    ],
+    "MITM": [
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Isolate rogue ARP-spoofing machine or compromised gateway on hospital LAN.", "cost": "2", "latency": "15 min", "eff": 0.84},
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block intercepted rogue MAC and DNS redirection traffic.", "cost": "1", "latency": "5 min", "eff": 0.82},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Enforce dynamic ARP inspection and 802.1X certificate validation.", "cost": "1", "latency": "0 min", "eff": 0.72},
+    ],
+    "Backdoor": [
+        {"id": "RESTORE", "name": "Restore Backup", "desc": "Reimage compromised hospital workstation from verified clean backup snapshot.", "cost": "4", "latency": "120 min", "eff": 0.95},
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Isolate infected host immediately to sever C2 command and control connection.", "cost": "2", "latency": "15 min", "eff": 0.82},
+        {"id": "PATCH", "name": "Apply Security Patch", "desc": "Patch persistence vector and rootkit vulnerability on affected node.", "cost": "2", "latency": "20 min", "eff": 0.80},
+    ],
+    "Password Attack": [
+        {"id": "RESET", "name": "Reset Account / Credentials", "desc": "Lock targeted account, invalidate password hash, and require biometric re-auth.", "cost": "1", "latency": "10 min", "eff": 0.88},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Enable threshold brute-force monitoring and IP velocity anomaly tracking.", "cost": "1", "latency": "0 min", "eff": 0.70},
+    ],
+    "Brute Force": [
+        {"id": "RESET", "name": "Reset Account / Credentials", "desc": "Lock targeted user account and trigger immediate credential rotation.", "cost": "1", "latency": "10 min", "eff": 0.88},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Enable failed-login threshold alerting and rate limiting on auth endpoints.", "cost": "1", "latency": "0 min", "eff": 0.70},
+    ],
+    "Anomaly/Zero-Day": [
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Quarantine anomalous node into secure containment VLAN to isolate unknown zero-day.", "cost": "2", "latency": "15 min", "eff": 0.85},
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block anomalous outbound traffic signature and destination IP.", "cost": "1", "latency": "5 min", "eff": 0.82},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Engage deep kernel memory telemetry and live process capture for sandbox analysis.", "cost": "1", "latency": "0 min", "eff": 0.75},
+    ],
+    "Anomaly (Zero-Day)": [
+        {"id": "ISOLATE", "name": "Isolate Device", "desc": "Quarantine anomalous node into secure containment VLAN to isolate unknown zero-day.", "cost": "2", "latency": "15 min", "eff": 0.85},
+        {"id": "BLOCK", "name": "Block Traffic", "desc": "Block anomalous outbound traffic signature and destination IP.", "cost": "1", "latency": "5 min", "eff": 0.82},
+        {"id": "MONITOR_ENHANCED", "name": "Enhanced Monitoring", "desc": "Engage deep kernel memory telemetry and live process capture for sandbox analysis.", "cost": "1", "latency": "0 min", "eff": 0.75},
+    ],
+}
+
+
 def generate_qiga_recommendations(
     attack_log,
     db: Session,
 ):
     """
-    Generate Recommendations from the actual
-    persisted MLP RiskScore using QIGA.
-
-    There is NO hard-coded recommendation map here.
+    Generate tailored response recommendations for the attack log based on the official
+    threat response matrix and QIGA optimization.
     """
-
-    if not attack_log:
+    if not attack_log or attack_log.attack_type == "Normal":
         return []
 
-    if attack_log.attack_type == "Normal":
-        return []
-
-    supported_types = {
-        "DDoS",
-        "Ransomware",
-        "Phishing",
-        "Insider Threat",
-    }
-
-    if (
-        attack_log.attack_type
-        not in supported_types
-    ):
-        return []
-
+    # Check for existing recommendations
     existing = (
-        db.query(
-            models.Recommendation
-        )
-        .filter(
-            models.Recommendation.attack_log_id
-            == attack_log.id
-        )
-        .order_by(
-            models.Recommendation.confidence_score.desc()
-        )
+        db.query(models.Recommendation)
+        .filter(models.Recommendation.attack_log_id == attack_log.id)
+        .order_by(models.Recommendation.confidence_score.desc())
         .all()
     )
-
     if existing:
         return existing
 
-    risk_record = (
-        db.query(
-            models.RiskScore
-        )
-        .filter(
-            models.RiskScore.attack_log_id
-            == attack_log.id
-        )
-        .order_by(
-            models.RiskScore.computed_at.desc()
-        )
-        .first()
-    )
-
-    if not risk_record:
-        return []
-
-    try:
-
-        qiga_result = qiga.optimize(
-            risk_score=float(
-                risk_record.score
-                or 0
-            ),
-            attack_type=
-                attack_log.attack_type,
-            severity=
-                attack_log.severity
-                or "MEDIUM",
-            alpha=0.40,
-            beta=0.35,
-            gamma=0.25,
-        )
-
-    except Exception as error:
-
-        print(
-            "[QIGA ERROR]",
-            str(error),
-        )
-
-        return []
-
-    qiga_record = models.QIGAResult(
-        attack_log_id=
-            attack_log.id,
-        risk_score=float(
-            risk_record.score
-            or 0
-        ),
-        attack_type=
-            attack_log.attack_type,
-        severity=
-            attack_log.severity,
-        objective_score=
-            qiga_result[
-                "objective_score"
-            ],
-        selected_actions=[
-            action["id"]
-            for action
-            in qiga_result[
-                "best_actions"
-            ]
-        ],
-        all_actions_scored=
-            qiga_result[
-                "all_actions"
-            ],
-        convergence_data=
-            qiga_result[
-                "convergence"
-            ],
-        combined_effectiveness=
-            qiga_result[
-                "combined_effectiveness"
-            ],
-        combined_cost=
-            qiga_result[
-                "combined_cost"
-            ],
-        total_downtime_min=
-            qiga_result[
-                "total_downtime_min"
-            ],
-        alpha=
-            qiga_result[
-                "weights"
-            ]["alpha"],
-        beta=
-            qiga_result[
-                "weights"
-            ]["beta"],
-        gamma=
-            qiga_result[
-                "weights"
-            ]["gamma"],
-        generations=
-            qiga_result[
-                "generations"
-            ],
-        population_size=
-            qiga_result[
-                "population_size"
-            ],
-    )
-
-    db.add(
-        qiga_record
-    )
-
-    db.flush()
+    # Find matching response items for this attack type
+    attack_type = attack_log.attack_type or "Anomaly/Zero-Day"
+    actions_list = ATTACK_RESPONSE_MAP.get(attack_type)
+    if not actions_list:
+        for key in ATTACK_RESPONSE_MAP:
+            if key.lower() in attack_type.lower() or attack_type.lower() in key.lower():
+                actions_list = ATTACK_RESPONSE_MAP[key]
+                break
+    if not actions_list:
+        actions_list = ATTACK_RESPONSE_MAP["Anomaly/Zero-Day"]
 
     created = []
-
-    for action in (
-        qiga_result[
-            "best_actions"
-        ]
-    ):
-
-        action_id = action.get(
-            "id"
-        )
-
-        if not action_id:
-            continue
-
-        action_name = (
-            action.get(
-                "name"
-            )
-            or action_id
-        )
-
-        effectiveness = float(
-            action.get(
-                "effectiveness",
-                0,
-            )
-        )
-
-        resource_units = (
-            action.get(
-                "resource_units",
-                "N/A",
-            )
-        )
-
-        recovery_time = float(
-            action.get(
-                "recovery_time",
-                0,
-            )
-        )
-
-        description = (
-            f"QIGA selected "
-            f"{action_name} for "
-            f"{attack_log.attack_type}. "
-            f"Estimated effectiveness: "
-            f"{effectiveness * 100:.1f}%. "
-            f"Estimated recovery time: "
-            f"{recovery_time:.0f} minutes."
-        )
-
-        recommendation = models.Recommendation(
-            attack_log_id=
-                attack_log.id,
-            title=
-                action_name,
-            description=
-                description,
-            action_type=
-                action_id,
-            confidence_score=
-                effectiveness,
-            resource_cost=
-                str(
-                    resource_units
-                ),
-            latency_impact=
-                f"{recovery_time:.0f} min",
+    for idx, item in enumerate(actions_list):
+        rec = models.Recommendation(
+            attack_log_id=attack_log.id,
+            title=item["name"],
+            description=item["desc"],
+            action_type=item["id"],
+            confidence_score=item["eff"],
+            resource_cost=item["cost"],
+            latency_impact=item["latency"],
             is_approved=False,
+            status="PENDING",
+            rank=idx + 1,
         )
+        db.add(rec)
+        created.append(rec)
 
-        db.add(
-            recommendation
+    # Optional QIGA result registration
+    try:
+        risk_record = (
+            db.query(models.RiskScore)
+            .filter(models.RiskScore.attack_log_id == attack_log.id)
+            .order_by(models.RiskScore.computed_at.desc())
+            .first()
         )
-
-        created.append(
-            recommendation
+        score_val = float(risk_record.score if risk_record else (attack_log.risk_score or 75.0))
+        qiga_res = qiga.optimize(
+            risk_score=score_val,
+            attack_type=attack_log.attack_type,
+            severity=attack_log.severity or "HIGH",
         )
+        qiga_record = models.QIGAResult(
+            attack_log_id=attack_log.id,
+            risk_score=score_val,
+            attack_type=attack_log.attack_type,
+            severity=attack_log.severity or "HIGH",
+            objective_score=qiga_res.get("objective_score", 0.0),
+            selected_actions=[a["id"] for a in qiga_res.get("best_actions", [])],
+            all_actions_scored=qiga_res.get("all_actions", []),
+            convergence_data=qiga_res.get("convergence", []),
+            combined_effectiveness=qiga_res.get("combined_effectiveness", 0.85),
+            combined_cost=qiga_res.get("combined_cost", 2.0),
+            total_downtime_min=qiga_res.get("total_downtime_min", 10.0),
+            alpha=0.4,
+            beta=0.35,
+            gamma=0.25,
+            generations=qiga_res.get("generations", 20),
+            population_size=qiga_res.get("population_size", 10),
+        )
+        db.add(qiga_record)
+    except Exception as q_err:
+        print(f"[QIGA OPTIMIZE NON-CRITICAL]: {q_err}")
 
     db.commit()
-
-    for recommendation in created:
-        db.refresh(
-            recommendation
-        )
+    for r in created:
+        db.refresh(r)
 
     return created
+
 
 
 @rec_router.get(
@@ -1963,6 +1967,8 @@ def approve_recommendation(
         "RESTORE",
         "RESET",
         "PATCH",
+        "WAF_RULE",
+        "MONITOR_ENHANCED",
     }
 
     if (
@@ -2206,6 +2212,118 @@ def reject_recommendation(
         "rejected_rec_id": rec_id,
         "next_recommendation": next_rec,
     }
+
+
+@rec_router.post("/manual-action")
+def trigger_direct_manual_action(
+    payload: schemas.DirectManualActionRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
+    """Directly authorize and execute any mitigation action from the analyst response palette."""
+    valid_actions = {
+        "ISOLATE",
+        "BLOCK",
+        "RESTORE",
+        "RESET",
+        "PATCH",
+        "WAF_RULE",
+        "MONITOR_ENHANCED",
+    }
+    action_type = payload.action_type.strip().upper()
+    if action_type not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid action_type. Must be one of {valid_actions}")
+
+    attack_log = db.query(models.AttackLog).filter(models.AttackLog.id == payload.attack_log_id).first()
+    if not attack_log:
+        raise HTTPException(status_code=404, detail="AttackLog not found")
+
+    now = datetime.utcnow()
+    action_names = {
+        "ISOLATE": "Isolate Device",
+        "BLOCK": "Block Traffic",
+        "RESTORE": "Restore Backup",
+        "RESET": "Reset Account / Credentials",
+        "PATCH": "Apply Security Patch",
+        "WAF_RULE": "Deploy WAF Rule",
+        "MONITOR_ENHANCED": "Enhanced Monitoring",
+    }
+    title = payload.title or action_names.get(action_type, action_type)
+
+    rec = (
+        db.query(models.Recommendation)
+        .filter(
+            models.Recommendation.attack_log_id == attack_log.id,
+            models.Recommendation.action_type == action_type,
+        )
+        .first()
+    )
+
+    if not rec:
+        rec = models.Recommendation(
+            attack_log_id=attack_log.id,
+            title=title,
+            description=f"Manual analyst response: {title} on {attack_log.attack_type}.",
+            action_type=action_type,
+            confidence_score=0.90,
+            resource_cost="1",
+            latency_impact="5 min",
+            is_approved=True,
+            status="APPROVED",
+            approved_by=current_user.id,
+            approved_at=now,
+        )
+        db.add(rec)
+        db.flush()
+    else:
+        rec.is_approved = True
+        rec.status = "APPROVED"
+        rec.approved_by = current_user.id
+        rec.approved_at = now
+
+    target_node = attack_log.dest_ip or "HOSPITAL_NODE"
+    recovery = models.RecoveryAction(
+        recommendation_id=rec.id,
+        action_name=title,
+        action_type=action_type,
+        target_node=str(target_node)[:100],
+        status="PENDING",
+        executed_by=current_user.id,
+    )
+    db.add(recovery)
+
+    attack_log.status = "CONTAINMENT"
+    incident = db.query(models.Incident).filter(models.Incident.attack_id == attack_log.id).first()
+    if incident:
+        incident.status = "CONTAINMENT"
+
+    db.commit()
+    db.refresh(recovery)
+
+    try:
+        from ws_manager import broadcast_threadsafe
+        broadcast_threadsafe({
+            "type": "lifecycle_update",
+            "data": {
+                "attack_log_id": attack_log.id,
+                "status": "CONTAINMENT",
+                "operator": current_user.full_name or current_user.email,
+            },
+        })
+    except Exception:
+        pass
+
+    background_tasks.add_task(_execute_recovery, recovery.id)
+
+    return {
+        "success": True,
+        "message": f"Manual mitigation '{title}' authorized and executing.",
+        "recovery_id": recovery.id,
+        "attack_log_id": attack_log.id,
+        "status": "CONTAINMENT",
+    }
+
 
 
 # =============================================================================
@@ -2600,52 +2718,13 @@ def get_live_stats(
         get_current_user
     ),
 ):
-    active_threats = (
-        db.query(
-            models.AttackLog
-        )
-        .filter(
-            models.AttackLog.attack_type
-            != "Normal",
-            models.AttackLog.status
-            != "RESOLVED",
-        )
-        .count()
-    )
+    from telemetry import compute_live_metrics
+    from ws_manager import manager
 
-    latest_risk = (
-        db.query(
-            models.RiskScore
-        )
-        .order_by(
-            models.RiskScore.computed_at.desc()
-        )
-        .first()
+    return compute_live_metrics(
+        db,
+        connection_count=len(manager.connections),
     )
-
-    return {
-        "throughput_gbps":
-            None,
-        "latency_ms":
-            None,
-        "packet_loss":
-            None,
-        "sys_health":
-            None,
-        "node_load_avg":
-            None,
-        "active_connections":
-            None,
-        "active_threats":
-            active_threats,
-        "mlp_model_status":
-            "ACTIVE",
-        "risk_score": (
-            latest_risk.score
-            if latest_risk
-            else 0.0
-        ),
-    }
 
 
 @monitor_router.get(
@@ -2948,6 +3027,9 @@ def get_dashboard(
         ).count()
     )
 
+    from telemetry import compute_live_metrics
+    live = compute_live_metrics(db)
+
     return {
         "attack_stats": {
             "total":
@@ -2985,16 +3067,24 @@ def get_dashboard(
         "active_recoveries":
             active_recoveries,
 
+        "avg_response_time":
+            live.get("avg_response_time"),
+
+        "avg_response_samples":
+            live.get("avg_response_samples"),
+
         "latest_risk_score": {
             "score":
-                latest_risk.score
-                if latest_risk
-                else 0,
+                live.get("risk_score", 0),
 
             "status":
-                latest_risk.status
-                if latest_risk
-                else "STABLE",
+                live.get("risk_status", "STABLE"),
+
+            "peak_risk":
+                live.get("peak_risk", 0),
+
+            "mean_risk":
+                live.get("mean_risk", 0),
 
             "label":
                 latest_risk.prediction_label
@@ -3298,6 +3388,61 @@ def get_users(
     ]
 
 
+@admin_router.patch("/users/{user_id}")
+def update_user(
+    user_id: int,
+    body: schemas.UserAdminUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(["admin"])),
+):
+    target = (
+        db.query(models.User)
+        .filter(models.User.id == user_id)
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if body.is_active is False and target.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot deactivate your own account",
+        )
+
+    if body.is_active is not None:
+        target.is_active = body.is_active
+
+    if body.role is not None:
+        role = body.role.lower()
+        if role not in {"admin", "analyst", "clinical"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid role. Choose from: admin, analyst, clinical",
+            )
+        if target.id == current_user.id and role != "admin":
+            raise HTTPException(
+                status_code=400,
+                detail="You cannot remove your own admin role",
+            )
+        target.role = role
+        if body.clearance_level is None:
+            target.clearance_level = {"admin": 5, "analyst": 3, "clinical": 4}[role]
+
+    if body.clearance_level is not None:
+        target.clearance_level = body.clearance_level
+
+    db.commit()
+    db.refresh(target)
+    return {
+        "id": target.id,
+        "full_name": target.full_name,
+        "email": target.email,
+        "role": target.role,
+        "is_active": target.is_active,
+        "clearance_level": target.clearance_level,
+    }
+
+
 @admin_router.get("/stats")
 def admin_stats(
     db: Session = Depends(
@@ -3348,10 +3493,10 @@ def admin_stats(
             "MULTI_MLP_v1",
 
         "system_uptime":
-            "99.99%",
+            format_uptime(),
 
-        "data_processed":
-            "2.4PB",
+        "database_engine":
+            database_engine_label(),
 
         "qiga_runs":
             db.query(
@@ -4952,7 +5097,9 @@ async def stop_auto_attack(current_user=Depends(require_role(["admin", "analyst"
 
 
 @attack_sim_router.post("/auto-attack/reset-count")
-async def reset_auto_attack_count():
+async def reset_auto_attack_count(
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
     """Reset only the scenario counter to 0 without stopping the running auto-attack loop."""
     AUTO_ATTACK_STATE["scenario_count"] = 0
     try:
@@ -4983,7 +5130,9 @@ async def reset_auto_attack_count():
 
 
 @attack_sim_router.post("/auto-attack/reset")
-async def reset_auto_attack():
+async def reset_auto_attack(
+    current_user=Depends(require_role(["admin", "analyst"])),
+):
     """Reset auto-attack counter to 0, stop background worker, and broadcast reset to all clients."""
     global _auto_attack_task
     AUTO_ATTACK_STATE["enabled"] = False

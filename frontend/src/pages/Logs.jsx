@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Search } from 'lucide-react'
-import { useSOCStore, LIFECYCLE_STAGES } from '../store/socEngine'
+import { useSOCStore } from '../store/socEngine'
 import { useIncidentStore } from '../store'
 
 const SEV_COLOR = {
@@ -24,12 +24,12 @@ export default function Logs() {
       return i.severity === filter && i.attack_type !== 'Normal';
     })
     .filter(i => !search ||
-      i.attack_type.toLowerCase().includes(search.toLowerCase()) ||
-      i.source_ip.includes(search) ||
-      i.dest_ip.includes(search) ||
+      (i.attack_type || '').toLowerCase().includes(search.toLowerCase()) ||
+      String(i.source_ip || '').includes(search) ||
+      String(i.dest_ip || '').includes(search) ||
       (i.department || '').toLowerCase().includes(search.toLowerCase()) ||
       (i.asset_name || i.asset || '').toLowerCase().includes(search.toLowerCase()) ||
-      String(i.attack_log_id || i.incidentId).includes(search)
+      String(i.attack_log_id || i.incidentId || '').includes(search)
     )
 
   const stats = {
@@ -44,7 +44,7 @@ export default function Logs() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-white">Attack Logs</h1>
-          <p className="text-xs text-gray-500 font-mono mt-1">TON_IoT · PhiUSIIL · CERT r4 · CICIDS-2017 · Live feed · Auto-updating every 4s</p>
+          <p className="text-xs text-gray-500 font-mono mt-1">TON_IoT · PhiUSIIL · CERT · Live feed</p>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono text-cyber-green">
           <span className="w-2 h-2 rounded-full bg-cyber-green pulse-dot" />
@@ -113,8 +113,8 @@ export default function Logs() {
                     }`}>
                   <td className="px-3 py-3 text-cyber-cyan font-bold">{log.attack_log_id || log.incidentId}</td>
                   <td className={`px-3 py-3 font-bold whitespace-nowrap ${isNormal ? 'text-gray-400' : 'text-white'}`}>{log.attack_type}</td>
-                  <td className="px-3 py-3 text-red-400">{log.source_ip}</td>
-                  <td className="px-3 py-3 text-green-400">{log.dest_ip}</td>
+                  <td className="px-3 py-3 text-red-400">{log.source_ip || 'N/A'}</td>
+                  <td className="px-3 py-3 text-green-400">{log.dest_ip || 'N/A'}</td>
                   <td className="px-3 py-3 text-gray-400">{log.protocol || '--'}</td>
                   <td className="px-3 py-3 text-gray-400">{log.port || '--'}</td>
                   <td className="px-3 py-3 text-gray-300 whitespace-nowrap">{log.department || '--'}</td>
@@ -125,7 +125,7 @@ export default function Logs() {
                   <td className="px-3 py-3 font-bold" style={{ color: isNormal ? '#6b7280' : log.risk_score > 75 ? '#ff2d55' : log.risk_score > 45 ? '#ffd60a' : '#00ff88' }}>
                     {isNormal ? '--' : Math.round(log.risk_score || 0)}
                   </td>
-                  <td className="px-3 py-3 text-yellow-400">{LIFECYCLE_STAGES?.[log.stage] || log.stage || '--'}</td>
+                  <td className="px-3 py-3 text-yellow-400">{log.stage || log.status || '--'}</td>
                   <td className="px-3 py-3">
                     <span className={`px-2 py-0.5 rounded text-xs ${sevClass}`}>
                       {isNormal ? 'NORMAL' : log.severity}

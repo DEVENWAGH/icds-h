@@ -234,11 +234,6 @@ export default function Monitoring() {
        * No dataset is hard-coded here.
        */
 
-      console.log(
-        '[Monitoring] Live MLP detection:',
-        data
-      )
-
       setLiveDetection(data)
 
       /*

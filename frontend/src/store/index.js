@@ -91,10 +91,15 @@ export const useAlertStore = create(
       liveMetrics: {},
 
       setLiveMetrics: (metrics) => {
-        set({
-          liveMetrics:
-            metrics || {},
-        })
+        if (!metrics || typeof metrics !== 'object') {
+          return
+        }
+        set((state) => ({
+          liveMetrics: {
+            ...state.liveMetrics,
+            ...metrics,
+          },
+        }))
       },
 
       /*
@@ -216,11 +221,6 @@ export const useIncidentStore = create(
             ? null
             : id
 
-        console.log(
-          '[IncidentStore] Selected AttackLog:',
-          normalized
-        )
-
         set({
           selectedAttackLogId:
             normalized,
@@ -258,11 +258,6 @@ export const useIncidentStore = create(
             return state
           }
 
-          console.log(
-            '[IncidentStore] Auto-selected live AttackLog:',
-            normalized
-          )
-
           return {
             selectedAttackLogId:
               normalized,
@@ -287,11 +282,6 @@ export const useIncidentStore = create(
         if (normalized === null) {
           return
         }
-
-        console.log(
-          '[IncidentStore] Following live AttackLog:',
-          normalized
-        )
 
         set({
           selectedAttackLogId:

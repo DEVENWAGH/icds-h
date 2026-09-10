@@ -909,7 +909,7 @@ export default function SOCCommand() {
 
         {/* Live Metrics Counters */}
         <div className="hidden lg:flex items-center gap-3.5 ml-2 text-[11px] font-mono text-slate-300">
-          <span>SYS <span className="text-emerald-400 font-bold">{liveMetrics.sys_health?.toFixed(1) ?? "98.0"}%</span></span>
+          <span>SYS <span className="text-emerald-400 font-bold">{Number.isFinite(liveMetrics.sys_health) ? `${liveMetrics.sys_health.toFixed(1)}%` : '—'}</span></span>
           <span>RISK <span className="text-cyber-cyan font-bold">{liveMetrics.risk_score?.toFixed(0) ?? "0"}</span></span>
           <span>THR/MIN <span className="text-amber-400 font-bold">{liveMetrics.threats_per_minute ?? "0"}</span></span>
           <span>ACTIVE CONN <span className="text-sky-400 font-bold">{liveMetrics.active_connections ?? "0"}</span></span>
@@ -949,7 +949,7 @@ export default function SOCCommand() {
           <div className="grid grid-cols-4 gap-2.5">
             <MiniStat label="Live Threats" value={combinedThreats.length} icon={AlertOctagon} color="red" sub={`${unacknowledgedAlerts.length} unacknowledged`} pulse={combinedThreats.length > 0} />
             <MiniStat label="Firewall Blocks" value={fwRules.length} icon={ShieldOff} color="orange" sub="active rules active" />
-            <MiniStat label="System Health" value={`${liveMetrics.sys_health?.toFixed(0) ?? 98}%`} icon={Activity} color="green" pulse />
+            <MiniStat label="System Health" value={Number.isFinite(liveMetrics.sys_health) ? `${liveMetrics.sys_health.toFixed(0)}%` : '—'} icon={Activity} color="green" pulse />
             <MiniStat label="Risk Score" value={liveMetrics.risk_score?.toFixed(0) ?? 0} icon={TrendingUp} color="cyan" sub="MLP inference engine" />
           </div>
 

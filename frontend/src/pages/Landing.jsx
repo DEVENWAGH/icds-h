@@ -4,9 +4,12 @@ import {
   Shield, Cpu, Activity, Lock, ChevronRight, Zap, Globe, Database,
   CheckCircle2, Radio, Terminal, Server, ShieldCheck, ArrowRight, Eye, Sparkles, Layers, FileCode
 } from 'lucide-react'
+import { useAuthStore } from '../store'
 
 export default function Landing() {
   const navigate = useNavigate()
+  const token = useAuthStore((s) => s.token)
+  const goConsole = () => navigate(token ? '/app' : '/login')
   const [simVector, setSimVector] = useState('DDoS SYN Flood')
   const [simStatus, setSimStatus] = useState('BLOCKED & QUARANTINED (0.4ms)')
 
@@ -33,16 +36,16 @@ export default function Landing() {
 
         <div className="flex items-center gap-2.5">
           <button 
-            onClick={() => navigate('/login')} 
+            onClick={goConsole} 
             className="nav-cta-login cursor-pointer"
           >
             Log In
           </button>
           <button 
-            onClick={() => navigate('/login')} 
+            onClick={goConsole} 
             className="nav-cta-signup cursor-pointer"
           >
-            Sign In to SOC
+            {token ? 'Open SOC' : 'Sign In to SOC'}
           </button>
         </div>
       </nav>
@@ -72,13 +75,13 @@ export default function Landing() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mb-16">
           <button 
-            onClick={() => navigate('/login')} 
+            onClick={goConsole} 
             className="btn-primary-pill shadow-elevation-2 cursor-pointer w-full sm:w-auto"
           >
             <Zap size={16} /> Launch SOC Command <ArrowRight size={15} />
           </button>
           <button 
-            onClick={() => navigate('/login')} 
+            onClick={goConsole} 
             className="btn-secondary-pill shadow-elevation-2 cursor-pointer w-full sm:w-auto"
           >
             <Eye size={15} className="text-mute" /> View Live Telemetry &amp; XAI
@@ -118,7 +121,7 @@ export default function Landing() {
             ))}
           </div>
 
-          {/* Code Editor Mockup Surface */}
+          {/* Response preview */}
           <div className="code-editor-mockup p-4 font-mono text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#050505]">
             <div>
               <span className="text-gray-400 uppercase text-[10px] block">Active Threat Vector:</span>
@@ -139,10 +142,10 @@ export default function Landing() {
       <section className="border-y border-[#262626] bg-[#0a0a0a] py-8 px-6 md:px-12 text-center">
         <div className="max-w-5xl mx-auto">
           <p className="text-xs font-mono uppercase tracking-widest text-mute mb-5">
-            Trusted &amp; Audited Across Enterprise Healthcare Standards
+            Designed for enterprise healthcare security programs
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs font-mono font-medium text-body">
-            {['HIPAA Safe Harbor', 'NIST SP 800-53', 'ISO/IEC 27001', 'SOC 2 Type II', 'IEEE 802.1Q Security', 'GDPR Health Data'].map((cert) => (
+            {['HIPAA Security Rule', 'NIST SP 800-53', 'ISO/IEC 27001', 'SOC 2 controls', 'Zero Trust', 'GDPR health data'].map((cert) => (
               <div key={cert} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#141414] border border-[#262626]">
                 <ShieldCheck size={13} className="text-cyan" />
                 <span>{cert}</span>
@@ -156,10 +159,10 @@ export default function Landing() {
       <section className="px-6 md:px-12 py-16 max-w-6xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           {[
-            { val: '2.4 PB+', label: 'Clinical Telemetry Analyzed', sub: 'CICIDS2017 & IoMT Data' },
-            { val: '0.42 ms', label: 'Inference Latency', sub: 'Sub-millisecond Neural Flow' },
-            { val: '99.98%', label: 'Threat Interception Rate', sub: 'Zero-day Anomaly Defense' },
-            { val: '100% HIPAA', label: 'Clinical Compliance', sub: 'SHAP & LIME Transparency' },
+            { val: '3 datasets', label: 'Trained Detection Models', sub: 'TON_IoT · PhiUSIIL · CERT' },
+            { val: 'MLP + IF', label: 'Supervised + Anomaly Fusion', sub: 'Zero-day Isolation Forest' },
+            { val: 'SHAP', label: 'Explainable Predictions', sub: 'Feature-level attribution' },
+            { val: 'QIGA', label: 'Response Optimization', sub: 'Human-approved containment' },
           ].map(({ val, label, sub }) => (
             <div key={label} className="p-5 rounded-lg card-marketing text-left">
               <div className="text-2xl sm:text-3xl font-semibold font-mono text-white tracking-tight">{val}</div>
@@ -235,7 +238,7 @@ export default function Landing() {
               When a threat strikes an infusion pump or DICOM PACS server, ICDS-H executes targeted network micro-isolation in sub-milliseconds without dropping live vital sign telemetry.
             </p>
             <button 
-              onClick={() => navigate('/login')} 
+              onClick={goConsole} 
               className="btn-primary-pill cursor-pointer"
             >
               Explore SOC Portal <ArrowRight size={14} />
@@ -263,10 +266,10 @@ export default function Landing() {
           <div>
             <div className="font-mono text-xs font-semibold text-white uppercase tracking-wider mb-3">Platform</div>
             <ul className="space-y-2 text-mute">
-              <li><button onClick={() => navigate('/login')} className="hover:text-white transition-colors cursor-pointer">SOC Command</button></li>
-              <li><button onClick={() => navigate('/login')} className="hover:text-white transition-colors cursor-pointer">MLP Engine</button></li>
-              <li><button onClick={() => navigate('/login')} className="hover:text-white transition-colors cursor-pointer">QIGA Optimizer</button></li>
-              <li><button onClick={() => navigate('/login')} className="hover:text-white transition-colors cursor-pointer">Forensic Memory</button></li>
+              <li><button onClick={goConsole} className="hover:text-white transition-colors cursor-pointer">SOC Command</button></li>
+              <li><button onClick={goConsole} className="hover:text-white transition-colors cursor-pointer">MLP Engine</button></li>
+              <li><button onClick={goConsole} className="hover:text-white transition-colors cursor-pointer">QIGA Optimizer</button></li>
+              <li><button onClick={goConsole} className="hover:text-white transition-colors cursor-pointer">Forensic Memory</button></li>
             </ul>
           </div>
 
@@ -283,10 +286,10 @@ export default function Landing() {
           <div>
             <div className="font-mono text-xs font-semibold text-white uppercase tracking-wider mb-3">Telemetry</div>
             <ul className="space-y-2 text-mute">
-              <li>CICIDS2017 Dataset</li>
-              <li>IoMT Infusion Pumps</li>
-              <li>PACS / DICOM Streams</li>
-              <li>Bedside Vital Monitors</li>
+              <li>TON_IoT Network Events</li>
+              <li>PhiUSIIL Phishing URLs</li>
+              <li>CERT Insider Threat</li>
+              <li>Optional live capture</li>
             </ul>
           </div>
 

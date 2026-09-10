@@ -1,17 +1,22 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Any
 from datetime import datetime
 
 # Auth
 class UserCreate(BaseModel):
-    full_name: str
+    full_name: str = Field(min_length=2, max_length=100)
     email: EmailStr
-    password: str
-    role: str 
+    password: str = Field(min_length=8, max_length=128)
+    role: str = "clinical"
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=128)
+
+class UserAdminUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    role: Optional[str] = None
+    clearance_level: Optional[int] = Field(default=None, ge=1, le=5)
 
 class UserOut(BaseModel):
     id: int
@@ -96,9 +101,9 @@ class RiskScoreOut(BaseModel):
     attack_log_id: Optional[int] = None
     class Config: from_attributes = True
 
-# Prediction Input
+# Prediction Input — attack_log_id may be sent in the body or as a query param
 class PredictInput(BaseModel):
-    pass
+    attack_log_id: Optional[int] = None
 
 class PredictOutput(BaseModel):
     risk_score: float
@@ -148,3 +153,13 @@ class MonitoringOut(BaseModel):
     node_load_avg: Optional[float]
     recorded_at: datetime
     class Config: from_attributes = True
+
+# Stage & Manual Action
+class StageUpdateRequest(BaseModel):
+    stage: str
+
+class DirectManualActionRequest(BaseModel):
+    attack_log_id: int
+    action_type: str
+    title: Optional[str] = None
+
