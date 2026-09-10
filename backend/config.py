@@ -24,19 +24,19 @@ class Settings(BaseSettings):
 
     # Admin Credentials
     ADMIN_EMAIL: str = "admin@icds-h.com"
-    ADMIN_PASSWORD: str = "Admin@1234"
+    ADMIN_PASSWORD: str = "change_me_admin_password"
     ADMIN_NAME: str = "Dr. Aris Thorne"
     ADMIN_CLEARANCE: int = 5
 
     # Analyst (SOC Lead) Credentials
     ANALYST_EMAIL: str = "analyst@icds-h.com"
-    ANALYST_PASSWORD: str = "Analyst@1234"
+    ANALYST_PASSWORD: str = "change_me_analyst_password"
     ANALYST_NAME: str = "Elena Rostova"
     ANALYST_CLEARANCE: int = 3
 
     # Clinical (MedDirector) Credentials
     CLINICAL_EMAIL: str = "clinical@icds-h.com"
-    CLINICAL_PASSWORD: str = "Clinical@1234"
+    CLINICAL_PASSWORD: str = "change_me_clinical_password"
     CLINICAL_NAME: str = "Dr. Meera Kapoor"
     CLINICAL_CLEARANCE: int = 4
 
