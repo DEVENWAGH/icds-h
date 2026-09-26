@@ -160,6 +160,15 @@ def get_latest_threats(
         .all()
     )
 
+    assets = {
+        asset.id: asset
+        for asset in db.query(models.HospitalAsset).all()
+    }
+    departments = {
+        dept.id: dept.name
+        for dept in db.query(models.Department).all()
+    }
+
     return [
         {
             "id": log.id,
@@ -215,6 +224,23 @@ def get_latest_threats(
                     else 0.0
                 ),
             "model_version": None,
+            "asset_id": log.asset_id,
+            "impact_line": log.impact_line,
+            "asset_name": (
+                assets[log.asset_id].asset_name
+                if log.asset_id in assets
+                else None
+            ),
+            "asset_code": (
+                assets[log.asset_id].asset_code
+                if log.asset_id in assets
+                else None
+            ),
+            "department": (
+                departments.get(assets[log.asset_id].department_id)
+                if log.asset_id in assets and assets[log.asset_id].department_id
+                else None
+            ),
         }
         for (
             log,
@@ -3130,6 +3156,10 @@ def get_dashboard(
                     log.suspicious_score,
                 "detected_at":
                     log.detected_at.isoformat(),
+                "impact_line":
+                    log.impact_line,
+                "asset_id":
+                    log.asset_id,
             }
             for log in recent_attacks
         ],
@@ -3414,10 +3444,10 @@ def update_user(
 
     if body.role is not None:
         role = body.role.lower()
-        if role not in {"admin", "analyst", "clinical"}:
+        if role not in {"admin", "analyst", "clinical", "hospital_admin", "doctor", "nurse", "lab_technician", "receptionist"}:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid role. Choose from: admin, analyst, clinical",
+                detail="Invalid role",
             )
         if target.id == current_user.id and role != "admin":
             raise HTTPException(
@@ -3426,7 +3456,16 @@ def update_user(
             )
         target.role = role
         if body.clearance_level is None:
-            target.clearance_level = {"admin": 5, "analyst": 3, "clinical": 4}[role]
+            target.clearance_level = {
+                "admin": 5,
+                "hospital_admin": 4,
+                "clinical": 4,
+                "analyst": 3,
+                "doctor": 3,
+                "nurse": 2,
+                "lab_technician": 2,
+                "receptionist": 1,
+            }.get(role, target.clearance_level)
 
     if body.clearance_level is not None:
         target.clearance_level = body.clearance_level

@@ -4,11 +4,12 @@ from datetime import datetime, timedelta
 from database import get_db
 import models, schemas
 from auth import hash_password, verify_password, create_access_token, get_current_user, decode_access_token
+from hospital_audit import note_failed_login, note_successful_login
+from roles import ALL_ROLES, CLEARANCE, can_assign
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-VALID_ROLES = {'admin', 'analyst', 'clinical'}
-PRIVILEGED_ROLES = {'admin', 'analyst'}
+VALID_ROLES = ALL_ROLES
 
 # In-memory brute-force protection for login.
 _LOGIN_ATTEMPTS = {}
@@ -16,10 +17,8 @@ MAX_FAILED_LOGINS = 5
 LOCKOUT_SECONDS = 60
 
 
-def _requesting_admin(request: Request, db: Session):
-    """Best-effort: return the User if the caller presents a valid admin JWT,
-    else None. Used so an existing admin can provision privileged accounts
-    while anonymous self-registration cannot escalate privileges."""
+def _requesting_provisioner(request: Request, db: Session):
+    """Return the caller when they are an ICDS admin or hospital admin."""
     auth = request.headers.get("authorization", "")
     if not auth.lower().startswith("bearer "):
         return None
@@ -32,7 +31,7 @@ def _requesting_admin(request: Request, db: Session):
     if not email:
         return None
     user = db.query(models.User).filter(models.User.email == email).first()
-    if user and user.is_active and user.role == 'admin':
+    if user and user.is_active and user.role in {"admin", "hospital_admin"}:
         return user
     return None
 
@@ -44,28 +43,27 @@ def register(user_in: schemas.UserCreate, request: Request, db: Session = Depend
         raise HTTPException(status_code=400, detail="Email already registered")
     requested_role = user_in.role.lower() if user_in.role else 'clinical'
     if requested_role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail=f"Invalid role. Choose from: {VALID_ROLES}")
+        raise HTTPException(status_code=400, detail=f"Invalid role. Choose from: {sorted(VALID_ROLES)}")
 
-    # SECURITY: privileged roles (admin/analyst) may only be created by an
-    # authenticated admin. Anonymous / non-admin self-registration is forced to
-    # the least-privileged clinical role to prevent privilege escalation.
-    if requested_role in PRIVILEGED_ROLES:
-        if _requesting_admin(request, db) is None:
+    # Public registration can only create a clinical account.
+    # Every other role is assigned by an ICDS admin or hospital admin.
+    if requested_role == "clinical":
+        role = "clinical"
+    else:
+        creator = _requesting_provisioner(request, db)
+        if creator is None or not can_assign(creator.role, requested_role):
             raise HTTPException(
                 status_code=403,
-                detail="Privileged accounts (admin/analyst) must be provisioned by an administrator.",
+                detail="That role must be assigned by an ICDS admin or hospital admin.",
             )
         role = requested_role
-    else:
-        role = 'clinical'
 
-    clearance_map = {'admin': 5, 'analyst': 3, 'clinical': 4}
     user = models.User(
         full_name=user_in.full_name,
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
         role=role,
-        clearance_level=clearance_map.get(role, 3)
+        clearance_level=CLEARANCE.get(role, 1)
     )
     db.add(user)
     db.commit()
@@ -87,12 +85,23 @@ def login(user_in: schemas.UserLogin, request: Request, db: Session = Depends(ge
         )
 
     user = db.query(models.User).filter(models.User.email == user_in.email).first()
-    if not user or not verify_password(user_in.password, user.hashed_password):
+    if user is None:
+        user = (
+            db.query(models.User)
+            .filter(models.User.email.ilike(user_in.email))
+            .first()
+        )
+    password_ok = bool(user) and verify_password(user_in.password, user.hashed_password)
+    if not password_ok:
         rec = _LOGIN_ATTEMPTS.setdefault(key, {"count": 0, "locked_until": None})
         rec["count"] += 1
         if rec["count"] >= MAX_FAILED_LOGINS:
             rec["locked_until"] = now + timedelta(seconds=LOCKOUT_SECONDS)
             rec["count"] = 0
+        try:
+            note_failed_login(db, request, user_in.email, user)
+        except Exception:
+            db.rollback()
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
@@ -100,7 +109,12 @@ def login(user_in: schemas.UserLogin, request: Request, db: Session = Depends(ge
     # Successful login clears the throttle record.
     _LOGIN_ATTEMPTS.pop(key, None)
     user.last_login = datetime.utcnow()
-    db.commit()
+    try:
+        note_successful_login(db, request, user)
+    except Exception:
+        db.rollback()
+        user.last_login = datetime.utcnow()
+        db.commit()
     # Include role in JWT payload for client-side RBAC
     token = create_access_token(data={"sub": user.email, "role": user.role})
     return {

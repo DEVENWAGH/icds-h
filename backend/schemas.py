@@ -48,6 +48,8 @@ class AttackLogOut(BaseModel):
     description: Optional[str]
     detected_at: datetime
     dataset_source: Optional[str] = None
+    asset_id: Optional[int] = None
+    impact_line: Optional[str] = None
     class Config: from_attributes = True
 
 # Hospital Assets
@@ -162,4 +164,21 @@ class DirectManualActionRequest(BaseModel):
     attack_log_id: int
     action_type: str
     title: Optional[str] = None
+
+class HospitalUserCreate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    role: str
+    department_code: Optional[str] = None
+
+class HospitalUserUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    role: Optional[str] = None
+    department_code: Optional[str] = None
+
+class HospitalAccessIn(BaseModel):
+    system_code: str = Field(min_length=2, max_length=20)
+    action: str = Field(min_length=2, max_length=50)
+    patient_id: Optional[int] = None
 

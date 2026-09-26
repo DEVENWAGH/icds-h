@@ -38,71 +38,64 @@ const THREAT_TYPES = new Set([
 * Actual security telemetry continues to come from the backend
 * datasets and MLP prediction pipeline.
   */
-  const SIMULATED_ASSETS = [
+const SIMULATED_ASSETS = [
   {
-  asset_name: 'Hospital Core Server',
-  asset_type: 'Server',
-  department: 'IT Infrastructure',
-  criticality: 'CRITICAL',
-  status: 'ONLINE',
+    asset_name: 'EMR Server',
+    asset_code: 'A001',
+    asset_type: 'EMR Server',
+    department: 'Oncology',
+    criticality: 'CRITICAL',
+    status: 'ONLINE',
   },
   {
-  asset_name: 'EHR Database',
-  asset_type: 'Database',
-  department: 'Health Information',
-  criticality: 'CRITICAL',
-  status: 'ONLINE',
+    asset_name: 'PACS Server',
+    asset_code: 'A002',
+    asset_type: 'Imaging System',
+    department: 'Radiology',
+    criticality: 'HIGH',
+    status: 'ONLINE',
   },
   {
-  asset_name: 'Clinical Workstation',
-  asset_type: 'Workstation',
-  department: 'Emergency Department',
-  criticality: 'HIGH',
-  status: 'ONLINE',
+    asset_name: 'LIS Server',
+    asset_code: 'A003',
+    asset_type: 'Laboratory Server',
+    department: 'Pathology',
+    criticality: 'HIGH',
+    status: 'ONLINE',
   },
   {
-  asset_name: 'Medical Device Gateway',
-  asset_type: 'Medical Device',
-  department: 'ICU',
-  criticality: 'CRITICAL',
-  status: 'MONITORING',
+    asset_name: 'ICU Monitor',
+    asset_code: 'A004',
+    asset_type: 'ICU Vital Monitoring',
+    department: 'ICU',
+    criticality: 'CRITICAL',
+    status: 'ONLINE',
   },
   {
-  asset_name: 'Pharmacy Server',
-  asset_type: 'Server',
-  department: 'Pharmacy',
-  criticality: 'HIGH',
-  status: 'ONLINE',
+    asset_name: 'Public Web App',
+    asset_code: 'A005',
+    asset_type: 'Web Application',
+    department: 'Front Office',
+    criticality: 'MEDIUM',
+    status: 'ONLINE',
   },
   {
-  asset_name: 'Laboratory Information Server',
-  asset_type: 'Server',
-  department: 'Laboratory',
-  criticality: 'HIGH',
-  status: 'ONLINE',
+    asset_name: 'AD Auth Server',
+    asset_code: 'A006',
+    asset_type: 'Authentication Service',
+    department: 'Administration',
+    criticality: 'CRITICAL',
+    status: 'ONLINE',
   },
   {
-  asset_name: 'Radiology Workstation',
-  asset_type: 'Workstation',
-  department: 'Radiology',
-  criticality: 'HIGH',
-  status: 'ONLINE',
+    asset_name: 'Registration Desk',
+    asset_code: 'A007',
+    asset_type: 'Registration Workstation',
+    department: 'Front Office',
+    criticality: 'MEDIUM',
+    status: 'ONLINE',
   },
-  {
-  asset_name: 'Patient Monitoring Gateway',
-  asset_type: 'Medical Device',
-  department: 'ICU',
-  criticality: 'CRITICAL',
-  status: 'MONITORING',
-  },
-  {
-  asset_name: 'Hospital Network Gateway',
-  asset_type: 'Network Device',
-  department: 'Network Operations',
-  criticality: 'CRITICAL',
-  status: 'ONLINE',
-  },
-  ]
+]
 
 /*
 
@@ -266,11 +259,27 @@ Number(riskValue)
 ? Number(riskValue)
 : null
 
-const asset =
+const simulated =
 getSimulatedAsset(
 log,
 raw
 )
+
+const asset = {
+  asset_name: log.asset_name || simulated.asset_name,
+  asset_type: log.asset_type || simulated.asset_type,
+  department: log.department || simulated.department,
+  criticality: log.asset_criticality || simulated.criticality,
+  status: log.asset_status || simulated.status,
+  asset_code: log.asset_code || simulated.asset_code || 'A001',
+}
+
+const severityWord = {
+  CRITICAL: 'Critical',
+  HIGH: 'High',
+  MEDIUM: 'Medium',
+  LOW: 'Low',
+}[String(log.severity || 'HIGH').toUpperCase()] || 'High'
 
 const sourceIp =
 log.source_ip ??
@@ -400,24 +409,28 @@ event_date: date,
  * Simulated healthcare context.
  */
 asset_name:
-  log.asset_name ??
   asset.asset_name,
 
+asset_code:
+  asset.asset_code,
+
 asset_type:
-  log.asset_type ??
   asset.asset_type,
 
 department:
-  log.department ??
   asset.department,
 
 asset_criticality:
-  log.asset_criticality ??
   asset.criticality,
 
 asset_status:
-  log.asset_status ??
   asset.status,
+
+impact_line:
+  log.impact_line ||
+  (attackType && attackType !== 'Normal'
+    ? `${attackType} detected → ${asset.asset_name} (${asset.asset_code}) → ${severityWord} Risk`
+    : null),
 
 /*
  * Preserve the exact backend feature payload.

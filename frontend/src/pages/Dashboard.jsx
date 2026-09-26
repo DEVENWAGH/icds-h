@@ -587,10 +587,13 @@ export default function Dashboard() {
                       {inc.incidentId || `EVT-${incidentId}`}
                     </td>
                     <td className="py-2.5 px-3 font-sans text-white font-medium">
-                      {inc.attack_type}
+                      <div>{inc.attack_type}</div>
+                      <div className="text-[10px] font-mono text-cyan-300/90 mt-1">
+                        {inc.impact_line || `${inc.attack_type} detected → ${inc.asset_name || 'Hospital Asset'} (${inc.asset_code || 'A001'}) → ${inc.severity || 'High'} Risk`}
+                      </div>
                     </td>
                     <td className="py-2.5 px-3 text-body">
-                      {inc.asset_name || 'PACSServer-01'}
+                      {inc.asset_code ? `${inc.asset_name} (${inc.asset_code})` : (inc.asset_name || 'EMR Server (A001)')}
                     </td>
                     <td className="py-2.5 px-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium ${

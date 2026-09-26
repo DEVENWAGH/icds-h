@@ -19,6 +19,11 @@ import Response from './pages/Response'
 import Memory from './pages/Memory'
 import Reports from './pages/Reports'
 import Admin from './pages/Admin'
+import Hospital from './pages/Hospital'
+import Patients from './pages/Patients'
+import AccessLogs from './pages/AccessLogs'
+import Staff from './pages/Staff'
+import { homeForRole, PATIENT_ROLES, ACCESS_LOG_ROLES, STAFF_ADMIN_ROLES, HOSPITAL_VIEW_ROLES } from './utils/roles'
 
 const ALL_ROLES = ['admin', 'analyst', 'clinical']
 const SOC_ROLES = ['admin', 'analyst']
@@ -40,8 +45,7 @@ function PrivateRoute({ children }) {
 function RoleRoute({ roles, children }) {
   const user = useAuthStore((s) => s.user)
   if (!user || !roles.includes(user.role)) {
-    const fallback = user?.role === 'clinical' ? '/app/dashboard' : '/app/command'
-    return <Navigate to={fallback} replace />
+    return <Navigate to={homeForRole(user?.role)} replace />
   }
   return children
 }
@@ -63,10 +67,7 @@ function SOCEngineBootstrap() {
 
 function AppIndexRedirect() {
   const user = useAuthStore((s) => s.user)
-  if (user?.role === 'clinical') {
-    return <Navigate to="/app/dashboard" replace />
-  }
-  return <Navigate to="/app/command" replace />
+  return <Navigate to={homeForRole(user?.role)} replace />
 }
 
 export default function App() {
@@ -91,6 +92,10 @@ export default function App() {
           <Route path="memory" element={<RoleRoute roles={SOC_ROLES}><Memory /></RoleRoute>} />
           <Route path="reports" element={<RoleRoute roles={ALL_ROLES}><Reports /></RoleRoute>} />
           <Route path="admin" element={<RoleRoute roles={['admin']}><Admin /></RoleRoute>} />
+          <Route path="hospital" element={<RoleRoute roles={HOSPITAL_VIEW_ROLES}><Hospital /></RoleRoute>} />
+          <Route path="patients" element={<RoleRoute roles={PATIENT_ROLES}><Patients /></RoleRoute>} />
+          <Route path="access-logs" element={<RoleRoute roles={ACCESS_LOG_ROLES}><AccessLogs /></RoleRoute>} />
+          <Route path="staff" element={<RoleRoute roles={STAFF_ADMIN_ROLES}><Staff /></RoleRoute>} />
           <Route path="*" element={<AppIndexRedirect />} />
         </Route>
 

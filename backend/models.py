@@ -3,27 +3,110 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
 
+class Department(Base):
+    __tablename__ = "departments"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    staff = relationship("User", back_populates="department")
+    systems = relationship("HospitalSystem", back_populates="department")
+    assets = relationship("HospitalAsset", back_populates="department")
+    patients = relationship("Patient", back_populates="department")
+
+
+class HospitalSystem(Base):
+    __tablename__ = "hospital_systems"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True, index=True)
+    asset_id = Column(Integer, ForeignKey("hospital_assets.id"), nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    department = relationship("Department", back_populates="systems")
+    asset = relationship("HospitalAsset", foreign_keys=[asset_id])
+    access_logs = relationship("AccessLog", back_populates="hospital_system")
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(100))
     email = Column(String(150), unique=True, index=True)
     hashed_password = Column(String(255))
-    role = Column(Enum('admin', 'analyst', 'clinical'), default='analyst')
+    role = Column(String(32), default="analyst", index=True)
     is_active = Column(Boolean, default=True)
     clearance_level = Column(Integer, default=1)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True, index=True)
     last_login = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    department = relationship("Department", back_populates="staff")
+    assigned_patients = relationship("Patient", back_populates="doctor")
+    access_logs = relationship("AccessLog", back_populates="user")
+
 
 class HospitalAsset(Base):
     __tablename__ = "hospital_assets"
     id = Column(Integer, primary_key=True, index=True)
+    asset_code = Column(String(20), unique=True, nullable=True, index=True)
     asset_name = Column(String(100), nullable=False)
     asset_type = Column(String(100))
-    ip_address = Column(String(45))
+    ip_address = Column(String(45), index=True)
     criticality = Column(Enum('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'))
     status = Column(Enum('ONLINE', 'OFFLINE', 'ISOLATED', 'COMPROMISED'), default='ONLINE')
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    department = relationship("Department", back_populates="assets")
+    attack_logs = relationship("AttackLog", back_populates="asset")
+
+
+class Patient(Base):
+    __tablename__ = "patients"
+    id = Column(Integer, primary_key=True, index=True)
+    patient_code = Column(String(20), unique=True, nullable=False, index=True)
+    full_name = Column(String(100), nullable=False)
+    age = Column(Integer, nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    medical_record = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    department = relationship("Department", back_populates="patients")
+    doctor = relationship("User", back_populates="assigned_patients")
+    access_logs = relationship("AccessLog", back_populates="patient")
+
+
+class AccessLog(Base):
+    __tablename__ = "access_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    email = Column(String(150), nullable=True, index=True)
+    full_name = Column(String(100), nullable=True)
+    role = Column(String(32), nullable=True)
+    event_type = Column(String(30), nullable=False, index=True)
+    action = Column(String(50), nullable=False)
+    hospital_system_id = Column(Integer, ForeignKey("hospital_systems.id"), nullable=True, index=True)
+    asset_id = Column(Integer, ForeignKey("hospital_assets.id"), nullable=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=True, index=True)
+    success = Column(Boolean, default=False, index=True)
+    ip_address = Column(String(45), nullable=True)
+    device = Column(String(255), nullable=True)
+    detail = Column(Text, nullable=True)
+    suspicious = Column(Boolean, default=False, index=True)
+    suspicion_reason = Column(String(255), nullable=True)
+    attack_log_id = Column(Integer, ForeignKey("attack_logs.id"), nullable=True, index=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    user = relationship("User", back_populates="access_logs")
+    hospital_system = relationship("HospitalSystem", back_populates="access_logs")
+    asset = relationship("HospitalAsset")
+    patient = relationship("Patient", back_populates="access_logs")
+    attack_log = relationship("AttackLog")
 
 class AttackLog(Base):
     __tablename__ = "attack_logs"
@@ -40,6 +123,9 @@ class AttackLog(Base):
     mitre_technique_name = Column(String(150), nullable=True)
     raw_features = Column(JSON, nullable=True)
     description = Column(Text, nullable=True)
+    asset_id = Column(Integer, ForeignKey("hospital_assets.id"), nullable=True, index=True)
+    impact_line = Column(String(255), nullable=True)
+    asset = relationship("HospitalAsset", back_populates="attack_logs")
     # Extended behavioral features
     cpu_utilization = Column(Float, nullable=True)
     failed_login_count = Column(Integer, nullable=True)

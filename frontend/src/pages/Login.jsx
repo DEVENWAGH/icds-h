@@ -6,10 +6,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../store'
 import api from '../utils/api'
-
-function homeForRole(role) {
-  return role === 'clinical' ? '/app/dashboard' : '/app/command'
-}
+import { homeForRole } from '../utils/roles'
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })

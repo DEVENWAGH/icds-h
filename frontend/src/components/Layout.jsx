@@ -4,13 +4,18 @@ import { useAuthStore, useAlertStore } from '../store'
 import {
   Shield, Activity, BarChart3, Bell, FileText,
   Eye, Brain, Zap, Settings, LogOut, Menu, ChevronRight, User, AlertOctagon, Cpu, Database,
-  Radio, Terminal, Sparkles
+  Radio, Terminal, Sparkles, Building2, HeartPulse, ClipboardList, UserPlus
 } from 'lucide-react'
+import { ACCESS_LOG_ROLES, HOSPITAL_VIEW_ROLES, PATIENT_ROLES, STAFF_ADMIN_ROLES } from '../utils/roles'
 
 // Role-based nav definitions with Command Center priority
 const ALL_NAV = [
   { to: '/app/command',    icon: Terminal,      label: 'SOC Command HUD', roles: ['admin','analyst'] },
   { to: '/app/dashboard',  icon: Shield,        label: 'SOC Overview',    roles: ['admin','analyst','clinical'] },
+  { to: '/app/hospital',   icon: Building2,     label: 'Hospital',        roles: HOSPITAL_VIEW_ROLES },
+  { to: '/app/patients',   icon: HeartPulse,    label: 'Patients',        roles: PATIENT_ROLES },
+  { to: '/app/access-logs',icon: ClipboardList, label: 'Access Logs',     roles: ACCESS_LOG_ROLES },
+  { to: '/app/staff',      icon: UserPlus,      label: 'Staff Access',    roles: STAFF_ADMIN_ROLES },
   { to: '/app/monitoring', icon: Activity,      label: 'Node Telemetry',  roles: ['admin','analyst','clinical'] },
   { to: '/app/analytics',  icon: BarChart3,     label: 'Deep Analytics',  roles: ['admin','analyst','clinical'] },
   { to: '/app/alerts',     icon: Bell,          label: 'Threat Alerts',   roles: ['admin','analyst','clinical'] },
@@ -171,13 +176,15 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button 
-              onClick={() => navigate('/app/xai')} 
-              className="nav-cta-ask-ai cursor-pointer"
-            >
-              <Sparkles size={12} className="text-violet" />
-              <span>Ask SOC AI</span>
-            </button>
+            {['admin', 'analyst', 'clinical'].includes(userRole) && (
+              <button
+                onClick={() => navigate('/app/xai')}
+                className="nav-cta-ask-ai cursor-pointer"
+              >
+                <Sparkles size={12} className="text-violet" />
+                <span>Ask SOC AI</span>
+              </button>
+            )}
             <div className="badge-secondary text-[11px] font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan pulse-dot" />
               <span>ZERO TRUST</span>

@@ -15,6 +15,7 @@ from database import engine, Base, SessionLocal
 import models
 
 from routers.auth import router as auth_router
+from routers.hospital import router as hospital_router
 from routers.api import (
     logs_router,
     alerts_router,
@@ -41,6 +42,8 @@ from cml.anomaly_detector import anomaly_detector
 from ws_manager import manager, set_main_loop
 from auth import get_user_from_token_string
 from telemetry import compute_live_metrics
+import hospital_link  # noqa: F401  registers attack-to-asset linking
+from hospital_seed import migrate_hospital_schema, seed_hospital
 
 logger = logging.getLogger("icds-h")
 
@@ -61,6 +64,7 @@ AUTO_RESPONSE_MIN_SEVERITY = settings.AUTO_RESPONSE_MIN_SEVERITY
 # =============================================================================
 
 Base.metadata.create_all(bind=engine)
+migrate_hospital_schema()
 
 
 # =============================================================================
@@ -124,6 +128,7 @@ app.include_router(xai_router)
 app.include_router(memory_router)
 app.include_router(firewall_router)
 app.include_router(attack_sim_router)
+app.include_router(hospital_router)
 
 
 # =============================================================================
@@ -927,6 +932,10 @@ def seed_initial_data():
             db.add_all(sample_assets)
             db.commit()
             print("[ICDS-H] Initial hospital assets seeded.")
+
+        seed_hospital(db)
+        db.commit()
+        print("[ICDS-H] Hospital departments, staff, and patients are ready.")
     except Exception as e:
         print(f"[ICDS-H] Seeding notice: {e}")
         db.rollback()

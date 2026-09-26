@@ -166,6 +166,9 @@ function AttackDetail({ log: attackLog, onBlockIp, onAcknowledge }) {
         </div>
         <div className="flex-1">
           <div className="text-base font-black text-white">{attackLog.attack_type}</div>
+          {attackLog.impact_line && (
+            <div className="text-[11px] font-mono text-cyan-200 mt-1">{attackLog.impact_line}</div>
+          )}
           <div className="flex items-center gap-2 mt-1">
             <span className={sevBadge(attackLog.severity)}>{attackLog.severity}</span>
             <span className="text-[10px] font-mono text-slate-400">ID #{attackLog.id || attackLog.attack_log_id}</span>

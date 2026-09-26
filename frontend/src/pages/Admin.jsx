@@ -3,7 +3,16 @@ import { Users, Shield, Database, Activity, RefreshCw } from 'lucide-react'
 import api from '../utils/api'
 import { useAuthStore } from '../store'
 
-const ROLE_OPTIONS = ['admin', 'analyst', 'clinical']
+const ROLE_OPTIONS = [
+  'admin',
+  'analyst',
+  'clinical',
+  'hospital_admin',
+  'doctor',
+  'nurse',
+  'lab_technician',
+  'receptionist',
+]
 
 export default function Admin() {
   const { user } = useAuthStore()

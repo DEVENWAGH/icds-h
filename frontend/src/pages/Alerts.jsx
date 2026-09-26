@@ -403,8 +403,7 @@ export default function Alerts() {
           </div>
 
           <h2 className="text-xl font-black text-white mb-1">
-            {primary.attack_type}{' '}
-            Attack Detected
+            {primary.impact_line || `${primary.attack_type} Attack Detected`}
           </h2>
 
           <p className="text-sm text-gray-400 mb-4">
@@ -794,8 +793,7 @@ export default function Alerts() {
                       <div className="flex items-center gap-2 mb-1">
 
                         <p className="text-sm font-bold text-white">
-                          {alertId} ·{' '}
-                          {alert.attack_type}
+                          {alert.impact_line || `${alertId} · ${alert.attack_type}`}
                         </p>
 
                         <span
