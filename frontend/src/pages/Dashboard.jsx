@@ -30,6 +30,7 @@ import {
 import { useAlertStore, useAuthStore } from '../store'
 import { useSOCStore } from '../store/socEngine'
 import api from '../utils/api'
+import { suggestResponse } from '../utils/responseSuggest'
 
 const SEV_COLOR = {
   CRITICAL: '#f87171',
@@ -581,6 +582,7 @@ export default function Dashboard() {
             <tbody className="divide-y divide-[#262626]">
               {filteredIncidents.slice(0, 8).map((inc) => {
                 const incidentId = inc.attack_log_id ?? inc.id
+                const suggestion = suggestResponse(inc)
                 return (
                   <tr key={`incident-${incidentId}`} className="hover:bg-[#141414] transition-colors font-mono">
                     <td className="py-2.5 px-3 font-semibold text-white">
@@ -591,6 +593,11 @@ export default function Dashboard() {
                       <div className="text-[10px] font-mono text-cyan-300/90 mt-1">
                         {inc.impact_line || `${inc.attack_type} detected → ${inc.asset_name || 'Hospital Asset'} (${inc.asset_code || 'A001'}) → ${inc.severity || 'High'} Risk`}
                       </div>
+                      {suggestion && (
+                        <div className="text-[10px] font-mono text-amber-200/90 mt-1">
+                          Suggested: {suggestion.headline}
+                        </div>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-body">
                       {inc.asset_code ? `${inc.asset_name} (${inc.asset_code})` : (inc.asset_name || 'EMR Server (A001)')}

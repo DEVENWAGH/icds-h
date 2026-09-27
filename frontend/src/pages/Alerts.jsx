@@ -11,6 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useSOCStore } from '../store/socEngine'
 import { useIncidentStore } from '../store'
+import { suggestResponse } from '../utils/responseSuggest'
 
 const SEV_COLOR = {
   CRITICAL: '#ff2d55',
@@ -636,15 +637,33 @@ export default function Alerts() {
           <div className="p-3 rounded-lg bg-purple-900/20 border border-purple-700/40 mb-4">
 
             <p className="text-xs font-mono text-purple-300 uppercase mb-1">
-              Response Status
+              Suggested response
             </p>
 
-            <p className="text-sm text-white font-mono">
-              {primary.status ===
-              'RESOLVED'
-                ? 'Incident resolved.'
-                : 'QIGA recommendation is available through the Response workflow. Approval is required before execution.'}
-            </p>
+            {primary.status === 'RESOLVED' ? (
+              <p className="text-sm text-white font-mono">Incident resolved.</p>
+            ) : (
+              (() => {
+                const suggestion = suggestResponse(primary)
+                if (!suggestion) {
+                  return (
+                    <p className="text-sm text-white font-mono">
+                      Review this event before any response is approved.
+                    </p>
+                  )
+                }
+                return (
+                  <div>
+                    <p className="text-sm text-white font-semibold">{suggestion.headline}</p>
+                    <ol className="mt-2 space-y-1 list-decimal list-inside">
+                      {suggestion.steps.map((step) => (
+                        <li key={step} className="text-xs text-gray-300 font-mono">{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )
+              })()
+            )}
 
           </div>
 
@@ -889,10 +908,10 @@ export default function Alerts() {
                             : 'N/A'}
                         </p>
 
-                        <p className="text-purple-300 italic">
-                          Response:
+                        <p className="text-amber-200">
+                          Suggested:
                           {' '}
-                          QIGA recommendation pending approval
+                          {suggestResponse(alert)?.headline || 'Review before approving a response'}
                         </p>
 
                       </div>

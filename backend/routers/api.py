@@ -5367,7 +5367,33 @@ async def trigger_scenario(
 ):
     """
     Execute a multi-stage attack scenario through the real AI pipeline.
+    Hospital monitoring stories are played with real staff, patients, and assets.
     """
+    from hospital_scenarios import (
+        run_blocked_record_open,
+        run_clinical_chart_watch,
+        run_staff_login_attack,
+    )
+
+    hospital_stories = {
+        "clinical_chart_watch": run_clinical_chart_watch,
+        "blocked_record_open": run_blocked_record_open,
+        "staff_login_attack": run_staff_login_attack,
+    }
+    if scenario in hospital_stories:
+        try:
+            results = hospital_stories[scenario](db)
+            db.commit()
+        except Exception as error:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=str(error))
+        return {
+            "scenario": scenario,
+            "hospital_monitoring": True,
+            "attacks_fired": len(results),
+            "results": results,
+        }
+
     scenarios = {
         "hospital_breach": [
             ("Scanning", "LOW"),

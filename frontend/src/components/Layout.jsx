@@ -10,7 +10,7 @@ import { ACCESS_LOG_ROLES, HOSPITAL_VIEW_ROLES, PATIENT_ROLES, STAFF_ADMIN_ROLES
 
 // Role-based nav definitions with Command Center priority
 const ALL_NAV = [
-  { to: '/app/command',    icon: Terminal,      label: 'SOC Command HUD', roles: ['admin','analyst'] },
+  { to: '/app/command',    icon: Terminal,      label: 'Defense', roles: ['admin','analyst'] },
   { to: '/app/dashboard',  icon: Shield,        label: 'SOC Overview',    roles: ['admin','analyst','clinical'] },
   { to: '/app/hospital',   icon: Building2,     label: 'Hospital',        roles: HOSPITAL_VIEW_ROLES },
   { to: '/app/patients',   icon: HeartPulse,    label: 'Patients',        roles: PATIENT_ROLES },

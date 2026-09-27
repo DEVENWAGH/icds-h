@@ -10,10 +10,11 @@ import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
 } from "recharts"
-import { useAuthStore, useAlertStore, useIncidentStore } from "../store"
+import { useAlertStore, useIncidentStore } from "../store"
 import { useSOCStore } from "../store/socEngine"
 import { useSimulatorStore } from "../store/simulatorStore"
 import api from "../utils/api"
+import { suggestResponse } from "../utils/responseSuggest"
 import { useNavigate } from "react-router-dom"
 
 // ─── Theme Constants (UI/UX Pro Max Cyberpunk SOC HUD) ───────────────────────
@@ -82,30 +83,22 @@ const timeAgo = (dt) => {
 }
 
 const sevBadge = (s) => {
-  const base = "px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1"
+  const base = "px-1.5 py-0.5 rounded text-[10px] font-mono uppercase inline-flex items-center"
   const map = {
-    CRITICAL: "bg-red-950/80 text-red-400 border border-red-500/60 shadow-[0_0_8px_rgba(255,45,85,0.2)]",
-    HIGH: "bg-orange-950/80 text-orange-400 border border-orange-500/60 shadow-[0_0_8px_rgba(255,149,0,0.2)]",
-    MEDIUM: "bg-yellow-950/80 text-yellow-400 border border-yellow-500/60",
-    LOW: "bg-emerald-950/80 text-emerald-400 border border-emerald-500/60"
+    CRITICAL: "bg-red-950/80 text-red-300 border border-red-800",
+    HIGH: "bg-orange-950/80 text-orange-300 border border-orange-800",
+    MEDIUM: "bg-yellow-950/80 text-yellow-200 border border-yellow-800",
+    LOW: "bg-emerald-950/80 text-emerald-300 border border-emerald-800"
   }
   return `${base} ${map[s] || "bg-slate-900 text-slate-400 border border-slate-700"}`
 }
 
-function MiniStat({ label, value, icon: Icon, color = "cyan", sub, pulse }) {
+function MiniStat({ label, value, sub }) {
   return (
-    <div className="cyber-card p-3 flex flex-col justify-between relative group hover:border-cyan-500/40 transition-all duration-200">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{label}</span>
-        <div className="p-1 rounded bg-white/5 border border-white/10 group-hover:border-cyan-500/30 transition-colors">
-          <Icon size={13} className={`text-cyber-${color}`} />
-        </div>
-      </div>
-      <div className="text-xl font-black font-mono text-white flex items-center gap-1.5 my-1">
-        {value}
-        {pulse && <span className="w-2 h-2 rounded-full bg-emerald-400 pulse-dot shadow-[0_0_8px_#22c55e]" />}
-      </div>
-      {sub && <div className={`text-[10px] font-mono text-cyber-${color}`}>{sub}</div>}
+    <div className="border border-[#262626] rounded-md bg-[#0a0a0a] px-3 py-2.5">
+      <div className="text-xs text-gray-400">{label}</div>
+      <div className="text-2xl font-semibold text-white mt-0.5">{value}</div>
+      {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
     </div>
   )
 }
@@ -215,6 +208,22 @@ function AttackDetail({ log: attackLog, onBlockIp, onAcknowledge }) {
         </div>
       )}
 
+      {(() => {
+        const suggestion = suggestResponse(attackLog)
+        if (!suggestion) return null
+        return (
+          <div className="cyber-card p-3 border-amber-500/30">
+            <div className="text-[10px] text-amber-300 font-mono uppercase mb-1">Suggested response</div>
+            <p className="text-xs text-white font-semibold">{suggestion.headline}</p>
+            <ol className="mt-2 space-y-1 list-decimal list-inside">
+              {suggestion.steps.map((step) => (
+                <li key={step} className="text-[11px] text-slate-300">{step}</li>
+              ))}
+            </ol>
+          </div>
+        )
+      })()}
+
       {attackLog.description && (
         <div className="cyber-card p-3">
           <div className="text-[10px] text-slate-400 font-mono uppercase mb-1">AI Intelligence Briefing</div>
@@ -299,6 +308,9 @@ const ATTACK_TYPES = [
 ]
 
 const SCENARIOS = [
+  { key: "clinical_chart_watch", label: "Doctor Chart Watch", desc: "Login, own EMR chart, then an outside-department alert on A001" },
+  { key: "blocked_record_open", label: "Blocked Record Open", desc: "Receptionist opens the EMR and is denied" },
+  { key: "staff_login_attack", label: "Staff Login Attack", desc: "Three failed doctor logins alert on AD Auth Server A006" },
   { key: "hospital_breach", label: "Hospital Breach", desc: "Port Scan -> Brute Force -> Ransomware" },
   { key: "phishing_campaign", label: "Phishing Campaign", desc: "Phishing URL -> Insider -> Ransomware" },
   { key: "ransomware_kill_chain", label: "Ransomware Kill Chain", desc: "Phishing -> Brute Force -> Ransomware" },
@@ -346,9 +358,7 @@ function SimulatorPanel({ sim }) {
   return (
     <div className="h-full flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-          <Terminal size={12} className="text-cyber-cyan" /> Attack Simulator
-        </span>
+        <span className="text-xs text-gray-300">Practice attacks</span>
         <span className="text-[9px] font-mono px-2 py-0.5 rounded font-black tracking-wider uppercase"
           style={{ background: `${stageColor[stage]}25`, color: stageColor[stage], border: `1px solid ${stageColor[stage]}50` }}>
           {autoRunning ? "AUTO-ATTACKING" : stage}
@@ -358,8 +368,8 @@ function SimulatorPanel({ sim }) {
       {/* ─── AUTO ATTACK MASTER CONTROLLER ─────────────────────────── */}
       <div className={`p-2.5 rounded-lg border transition-all duration-300 flex flex-col gap-1.5 ${
         autoRunning
-          ? "bg-rose-950/60 border-rose-500/70 shadow-[0_0_15px_rgba(244,63,94,0.35)]"
-          : "bg-slate-900/60 border-cyan-500/20 hover:border-cyan-500/40"
+            ? "bg-[#14080a] border-rose-800"
+          : "bg-black border-[#333]"
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
@@ -388,8 +398,8 @@ function SimulatorPanel({ sim }) {
           onClick={toggleAutoAttack}
           className={`w-full py-2 font-mono font-bold text-xs rounded-md flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-md ${
             autoRunning
-              ? "bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_12px_rgba(244,63,94,0.5)] active:scale-[0.98]"
-              : "bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-slate-950 font-black active:scale-[0.98]"
+              ? "bg-rose-900 text-white"
+              : "bg-white text-black"
           }`}
           title={autoRunning ? "Click to stop auto attack" : "Start continuous random attack scenarios (will not stop until clicked)"}
         >
@@ -554,8 +564,7 @@ function SimulatorPanel({ sim }) {
 }
 
 export default function SOCCommand() {
-  const { user, logout } = useAuthStore()
-  const { unreadCount, liveMetrics, liveThreats } = useAlertStore()
+  const { liveMetrics, liveThreats } = useAlertStore()
   const { selectedAttackLogId, setSelectedAttackLogId } = useIncidentStore()
   const navigate = useNavigate()
 
@@ -576,6 +585,7 @@ export default function SOCCommand() {
   const [fwRules, setFwRules] = useState([])
   const [fwLoading, setFwLoading] = useState(false)
   const [assets, setAssets] = useState([])
+  const [accessRows, setAccessRows] = useState([])
   const [xaiData, setXaiData] = useState(null)
   const [qigaActions, setQigaActions] = useState([])
   const [chartHistory, setChartHistory] = useState([])
@@ -602,18 +612,20 @@ export default function SOCCommand() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [logsRes, alertsRes, fwRes, assetsRes, riskHistRes] = await Promise.all([
+      const [logsRes, alertsRes, fwRes, overviewRes, accessRes, riskHistRes] = await Promise.all([
         api.get("/logs/?limit=40"),
         api.get("/alerts/?limit=40"),
         api.get("/firewall/rules?active_only=true"),
-        api.get("/assets/"),
+        api.get("/hospital/overview").catch(() => ({ data: null })),
+        api.get("/hospital/access-logs?limit=12").catch(() => ({ data: [] })),
         api.get("/dashboard/risk-history?limit=20").catch(() => ({ data: [] })),
       ])
       const fetchedLogs = logsRes.data || []
       setLogs(fetchedLogs)
       setAlerts(alertsRes.data || [])
       setFwRules(fwRes.data || [])
-      setAssets(assetsRes.data || [])
+      setAssets(overviewRes.data?.assets || [])
+      setAccessRows(Array.isArray(accessRes.data) ? accessRes.data : [])
 
       if (fetchedLogs.length === 0) {
         useAlertStore.getState().clearLiveThreats()
@@ -777,8 +789,6 @@ export default function SOCCommand() {
     return () => clearInterval(interval)
   }, [sim.autoRunning, fetchAll])
 
-  const handleLogout = () => { logout(); navigate("/login") }
-
   const autoBlockCritical = async () => {
     setFwLoading(true)
     try {
@@ -843,13 +853,19 @@ export default function SOCCommand() {
 
 
   const topSev = combinedThreats[0]?.severity || "LOW"
-  const THREAT_LEVELS = {
-    CRITICAL: { label: "CRITICAL", color: "#ff2d55", cls: "bg-red-950/80 border-red-500/60 shadow-[0_0_12px_rgba(255,45,85,0.3)]" },
-    HIGH:     { label: "HIGH",     color: "#ff9500", cls: "bg-orange-950/80 border-orange-500/60 shadow-[0_0_12px_rgba(255,149,0,0.3)]" },
-    MEDIUM:   { label: "MEDIUM",   color: "#ffd60a", cls: "bg-yellow-950/80 border-yellow-500/60" },
-    LOW:      { label: "LOW",      color: "#00ff88", cls: "bg-emerald-950/80 border-emerald-500/60" },
+  const tl = { label: topSev, cls: sevBadge(topSev) }
+  const suspiciousAccess = accessRows.filter((row) => row.suspicious).length
+  const assetsOnline = assets.filter((asset) => asset.status === "ONLINE").length
+
+  const threatLabel = (threat) => {
+    if (threat.impact_line) return threat.impact_line
+    const asset = assets.find((item) => item.ip_address && item.ip_address === threat.dest_ip)
+    const word = { CRITICAL: "Critical", HIGH: "High", MEDIUM: "Medium", LOW: "Low" }[threat.severity] || "High"
+    if (asset) {
+      return `${threat.attack_type} detected → ${asset.asset_name} (${asset.asset_code || "A000"}) → ${word} Risk`
+    }
+    return threat.attack_type || "Unknown event"
   }
-  const tl = THREAT_LEVELS[topSev] || THREAT_LEVELS["LOW"]
 
   const shap = xaiData?.top_features || xaiData?.shap_values || []
   const shapData = shap.slice(0, 8).map(s => ({
@@ -866,79 +882,19 @@ export default function SOCCommand() {
   })
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-cyber-bg grid-bg text-slate-100">
-      {/* ─── HEADER ───────────────────────────────────────────────────────── */}
-      <header className="flex items-center gap-3 px-4 py-2 bg-cyber-surface border-b border-cyan-500/20 flex-shrink-0 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_12px_rgba(0,229,255,0.4)]">
-            <Terminal size={14} className="text-slate-950 font-black" />
-          </div>
-          <div>
-            <div className="font-mono font-black text-cyber-cyan text-xs tracking-widest leading-none">MISSION COMMAND</div>
-            <div className="text-[8px] font-mono text-slate-400 uppercase tracking-wider mt-0.5">Live Threat Radar</div>
-          </div>
+    <div className="h-full flex flex-col overflow-hidden bg-black text-slate-100">
+      <header className="flex items-center gap-3 px-4 py-3 border-b border-[#262626] flex-shrink-0">
+        <div>
+          <h1 className="text-base font-semibold text-white leading-none">Defense dashboard</h1>
+          <p className="text-xs text-gray-500 mt-1">Hospital systems, staff activity, and detected attacks</p>
         </div>
-
-        {/* Global Threat Badge */}
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-black tracking-wider ${tl.cls}`} style={{ color: tl.color }}>
-          <span className="w-2 h-2 rounded-full pulse-dot" style={{ background: tl.color }} />
-          THREAT STATUS: {tl.label}
-        </div>
-
-        {/* Auto Attack Controller Switch (Synchronized with Simulator) */}
-        <button
-          onClick={sim.toggleAutoAttack}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-bold transition-all cursor-pointer ${
-            sim.autoRunning
-              ? "bg-rose-950/80 border-rose-500 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.4)] animate-pulse-subtle hover:bg-rose-900/80"
-              : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white"
-          }`}
-          title={sim.autoRunning ? "Click to stop auto attack" : "Start continuous random attack scenarios (will not stop until clicked)"}
-        >
-          {sim.autoRunning ? (
-            <>
-              <Radio size={12} className="text-rose-400 pulse-dot" />
-              <span>AUTO ATTACK: LIVE ({sim.autoScenarioCount})</span>
-            </>
-          ) : (
-            <>
-              <Zap size={12} className="text-yellow-400" />
-              <span>START AUTO ATTACK</span>
-            </>
-          )}
-        </button>
-
-
-
-        {/* Live Metrics Counters */}
-        <div className="hidden lg:flex items-center gap-3.5 ml-2 text-[11px] font-mono text-slate-300">
-          <span>SYS <span className="text-emerald-400 font-bold">{Number.isFinite(liveMetrics.sys_health) ? `${liveMetrics.sys_health.toFixed(1)}%` : '—'}</span></span>
-          <span>RISK <span className="text-cyber-cyan font-bold">{liveMetrics.risk_score?.toFixed(0) ?? "0"}</span></span>
-          <span>THR/MIN <span className="text-amber-400 font-bold">{liveMetrics.threats_per_minute ?? "0"}</span></span>
-          <span>ACTIVE CONN <span className="text-sky-400 font-bold">{liveMetrics.active_connections ?? "0"}</span></span>
-        </div>
-
-        {/* User profile & actions */}
-        <div className="ml-auto flex items-center gap-3">
-          <button onClick={fetchAll} className="text-slate-400 hover:text-cyber-cyan transition p-1.5 rounded-lg hover:bg-white/5 cursor-pointer" title="Refresh Telemetry">
+        <span className={tl.cls}>Highest: {tl.label}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => navigate("/app/hospital")} className="text-xs border border-[#333] rounded px-2 py-1 text-gray-300 hover:text-white">Hospital</button>
+          <button onClick={() => navigate("/app/patients")} className="text-xs border border-[#333] rounded px-2 py-1 text-gray-300 hover:text-white">Patients</button>
+          <button onClick={() => navigate("/app/access-logs")} className="text-xs border border-[#333] rounded px-2 py-1 text-gray-300 hover:text-white">Access logs</button>
+          <button onClick={fetchAll} className="text-gray-400 hover:text-white p-1.5" title="Refresh">
             <RefreshCw size={14} />
-          </button>
-          {unreadCount > 0 && (
-            <div className="flex items-center gap-1 text-xs font-mono text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded-md border border-rose-500/40 animate-pulse">
-              <Bell size={12} /><span className="font-bold">{unreadCount}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2 text-xs pl-2 border-l border-slate-700">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center shadow-inner">
-              <User size={13} className="text-white" />
-            </div>
-            <div className="hidden sm:block text-left">
-              <div className="font-mono font-bold text-slate-200 text-xs truncate">{user?.full_name}</div>
-              <div className="font-mono text-slate-400 text-[10px]">[{user?.role}]</div>
-            </div>
-          </div>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-400 transition p-1.5 rounded-lg hover:bg-white/5 cursor-pointer" title="Logout">
-            <LogOut size={14} />
           </button>
         </div>
       </header>
@@ -949,72 +905,19 @@ export default function SOCCommand() {
         <div className="flex flex-col gap-2.5 flex-1 min-w-0">
 
           {/* Row 1: KPI Stat Cards */}
-          <div className="grid grid-cols-4 gap-2.5">
-            <MiniStat label="Live Threats" value={combinedThreats.length} icon={AlertOctagon} color="red" sub={`${unacknowledgedAlerts.length} unacknowledged`} pulse={combinedThreats.length > 0} />
-            <MiniStat label="Firewall Blocks" value={fwRules.length} icon={ShieldOff} color="orange" sub="active rules active" />
-            <MiniStat label="System Health" value={Number.isFinite(liveMetrics.sys_health) ? `${liveMetrics.sys_health.toFixed(0)}%` : '—'} icon={Activity} color="green" pulse />
-            <MiniStat label="Risk Score" value={liveMetrics.risk_score?.toFixed(0) ?? 0} icon={TrendingUp} color="cyan" sub="MLP inference engine" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <MiniStat label="Open threats" value={combinedThreats.length} sub={`${unacknowledgedAlerts.length} alerts still open`} />
+            <MiniStat label="Hospital assets online" value={`${assetsOnline}/${assets.length || 0}`} sub="Systems ICDS-H is watching" />
+            <MiniStat label="Suspicious staff access" value={suspiciousAccess} sub="Flagged in the latest access logs" />
+            <MiniStat label="Risk score" value={liveMetrics.risk_score?.toFixed(0) ?? 0} sub={Number.isFinite(liveMetrics.sys_health) ? `System health ${liveMetrics.sys_health.toFixed(0)}%` : "System health unavailable"} />
           </div>
 
-          {/* Row 2: Visual Telemetry Charts */}
-          <div className="grid grid-cols-2 gap-2.5" style={{ height: "155px" }}>
-            <div className="cyber-card p-3 flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Activity size={11} className="text-cyber-cyan" /> Risk Velocity Timeline
-                </span>
-                <span className="text-[9px] font-mono text-slate-500">Real-time</span>
-              </div>
-              <div className="flex-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartHistory} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                    <defs>
-                      <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00e5ff" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#00e5ff" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="time" tick={{ fontSize: 8, fill: "#64748b" }} minTickGap={25} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 8, fill: "#64748b" }} />
-                    <Tooltip contentStyle={{ background: "#070f1f", border: "1px solid #00e5ff", borderRadius: "6px", fontSize: 10, fontFamily: "monospace" }} />
-                    <Area type="monotone" dataKey="risk" stroke="#00e5ff" fill="url(#rg)" strokeWidth={2} dot={false} isAnimationActive={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="cyber-card p-3 flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <BarChart3 size={11} className="text-emerald-400" /> Attack Vector Distribution
-                </span>
-                <span className="text-[9px] font-mono text-slate-500">{logs.length} events logged</span>
-              </div>
-              <div className="flex-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={attackDistrib.slice(0, 6)} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                    <XAxis dataKey="name" tick={{ fontSize: 8, fill: "#64748b" }} />
-                    <YAxis tick={{ fontSize: 8, fill: "#64748b" }} />
-                    <Tooltip contentStyle={{ background: "#070f1f", border: "1px solid #22c55e", borderRadius: "6px", fontSize: 10, fontFamily: "monospace" }} />
-                    <Bar dataKey="value" radius={[3, 3, 0, 0]}>
-                      {attackDistrib.slice(0, 6).map((entry, i) => (
-                        <Cell key={i} fill={ATTACK_COLORS[entry.name] || "#00e5ff"} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Row 3: Core Operations (Threat Feed + Alert Triage + Firewall) */}
+          {/* Threats, alerts, and firewall */}
           <div className="grid grid-cols-3 gap-2.5 flex-1 min-h-0">
             {/* Live Feed with Filter Tabs */}
             <div className="cyber-card p-3 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Radio size={11} className="text-rose-400 pulse-dot" /> Live Threat Feed
-                </span>
+                <span className="text-xs text-gray-300">Attacks on hospital assets</span>
                 {/* Severity filter pills */}
                 <div className="flex gap-0.5 bg-black/40 p-0.5 rounded border border-white/5">
                   {["ALL", "CRITICAL", "HIGH"].map(f => (
@@ -1026,12 +929,15 @@ export default function SOCCommand() {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-                {filteredThreats.slice(0, 25).map((t, i) => (
+                {filteredThreats.slice(0, 25).map((t, i) => {
+                  const full = logs.find(l => l.id === t.attack_log_id) || t
+                  const suggestion = suggestResponse(full)
+                  return (
                   <div key={t.attack_log_id || i}
                     onClick={() => {
                       setSelectedAttackLogId(t.attack_log_id);
                       openDrawer(`Threat Telemetry #${t.attack_log_id}`,
-                        <AttackDetail log={logs.find(l => l.id === t.attack_log_id) || t}
+                        <AttackDetail log={full}
                           onBlockIp={blockIpDirect}
                           onAcknowledge={acknowledgeByAttackLog} />
                       )
@@ -1040,8 +946,11 @@ export default function SOCCommand() {
                     <div className="flex items-center gap-2 min-w-0">
                       <AttackIcon type={t.attack_type} size={15} />
                       <div className="min-w-0">
-                        <div className="text-xs font-mono text-white group-hover:text-cyber-cyan transition truncate font-bold">{t.attack_type}</div>
-                        <div className="text-[10px] font-mono text-slate-400 truncate">{t.source_ip || t.dataset_source}</div>
+                        <div className="text-xs text-white group-hover:text-cyan-200 transition">{threatLabel(t)}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{t.source_ip || t.dataset_source} · {t.dest_ip || "hospital network"}</div>
+                        {suggestion && (
+                          <div className="text-[10px] text-amber-200 truncate">Suggested: {suggestion.headline}</div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-0.5">
@@ -1049,7 +958,8 @@ export default function SOCCommand() {
                       <span className="text-[9px] font-mono text-slate-500">{timeAgo(t.timestamp || t.detected_at)}</span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
                 {filteredThreats.length === 0 && (
                   <div className="text-xs text-slate-500 font-mono text-center py-6">Monitoring network stream... no active threats in view</div>
                 )}
@@ -1059,10 +969,8 @@ export default function SOCCommand() {
             {/* Alert Triage */}
             <div className="cyber-card p-3 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Bell size={11} className="text-amber-400" /> Alert Triage ({alerts.length})
-                </span>
-                <span className="text-[10px] font-mono text-rose-400 font-bold">{unacknowledgedAlerts.length} unacked</span>
+                <span className="text-xs text-gray-300">Alerts ({alerts.length})</span>
+                <span className="text-[11px] text-gray-500">{unacknowledgedAlerts.length} still open</span>
               </div>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
                 {alerts.slice(0, 25).map(alert => (
@@ -1107,89 +1015,69 @@ export default function SOCCommand() {
             </div>
           </div>
 
-          {/* Row 4: AI & Optimizer Engine (XAI + QIGA + Hospital Assets) */}
-          <div className="grid grid-cols-3 gap-2.5" style={{ height: "175px" }}>
-            {/* XAI SHAP Attribution */}
-            <div className="cyber-card p-3 flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Brain size={11} className="text-purple-400" /> Explainable AI (SHAP)
-                </span>
-                {selectedAttackLogId && <span className="text-[9px] font-mono text-cyan-400">Target #{selectedAttackLogId}</span>}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5" style={{ height: "210px" }}>
+            <div className="border border-[#262626] rounded-md bg-[#0a0a0a] p-3 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-300">Hospital assets</span>
+                <button onClick={() => navigate("/app/hospital")} className="text-[11px] text-cyan-300">Open hospital</button>
               </div>
-              {shapData.length > 0 ? (
-                <div className="flex-1">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={shapData} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
-                      <XAxis type="number" tick={{ fontSize: 7, fill: "#64748b" }} domain={["auto", "auto"]} />
-                      <YAxis type="category" dataKey="feature" tick={{ fontSize: 7, fill: "#94a3b8" }} width={85} />
-                      <Tooltip contentStyle={{ background: "#070f1f", border: "1px solid #a855f7", borderRadius: "6px", fontSize: 9, fontFamily: "monospace" }} />
-                      <Bar dataKey="value" radius={[0, 2, 2, 0]}>
-                        {shapData.map((entry, i) => <Cell key={i} fill={entry.value >= 0 ? "#f43f5e" : "#22c55e"} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-xs text-slate-500 font-mono">
-                  {selectedAttackLogId ? "Computing SHAP attribution..." : "Select threat event to explain"}
-                </div>
-              )}
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {assets.map((asset) => (
+                  <div key={asset.id} className="flex items-center justify-between text-xs border-b border-white/5 py-1">
+                    <span className="text-white">{asset.asset_name} ({asset.asset_code || "—"})</span>
+                    <span className="text-gray-400">{asset.status} · {asset.criticality}</span>
+                  </div>
+                ))}
+                {assets.length === 0 && <div className="text-xs text-gray-500">No hospital assets loaded.</div>}
+              </div>
             </div>
-
-            {/* QIGA Optimizer Recommendations */}
-            <div className="cyber-card p-3 flex flex-col">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Cpu size={11} className="text-blue-400" /> QIGA Quantum Optimizer
-                </span>
-                <span className="text-[9px] font-mono text-slate-500">Autonomous</span>
+            <div className="border border-[#262626] rounded-md bg-[#0a0a0a] p-3 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-300">Staff activity being monitored</span>
+                <button onClick={() => navigate("/app/access-logs")} className="text-[11px] text-cyan-300">All access logs</button>
               </div>
-              {qigaActions.length > 0 ? (
-                <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-                  {qigaActions.slice(0, 6).map((a, i) => (
-                    <div key={i} className="flex items-center justify-between text-[10px] font-mono cyber-card p-1.5">
-                      <span className="text-slate-200 truncate">{a.title || a.action || a.action_name}</span>
-                      <span className="text-cyber-cyan ml-1 flex-shrink-0 font-bold">{((a.confidence_score ?? a.effectiveness ?? a.score ?? 0) * 100).toFixed(0)}% Eff</span>
+              <div className="flex-1 overflow-y-auto space-y-1">
+                {accessRows.slice(0, 8).map((row) => (
+                  <div key={row.id} className="text-xs border-b border-white/5 py-1">
+                    <div className="text-white">
+                      {row.who} · {row.action} · {row.system || "Sign-in"}
+                      {row.patient_code ? ` · ${row.patient_code}` : ""}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-xs text-slate-500 font-mono text-center">
-                  {selectedAttackLogId ? "QIGA response optimization active" : "Select threat event to optimize"}
-                </div>
-              )}
-            </div>
-
-            {/* Hospital Assets Fleet */}
-            <div className="cyber-card p-3 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <Server size={11} className="text-cyan-400" /> Hospital Device Grid ({assets.length})
-                </span>
-                <span className="text-[9px] font-mono text-emerald-400">Online</span>
+                    <div className={row.suspicious ? "text-amber-300" : "text-gray-500"}>
+                      {row.success ? "Succeeded" : "Failed"}
+                      {row.impact_line ? ` · ${row.impact_line}` : row.suspicion_reason ? ` · ${row.suspicion_reason}` : ""}
+                    </div>
+                    {row.impact_line && (() => {
+                      const suggestion = suggestResponse({
+                        attack_type: row.impact_line.split(" detected")[0],
+                        impact_line: row.impact_line,
+                        description: row.suspicion_reason,
+                        source_ip: row.ip_address,
+                        asset_name: row.asset_name,
+                        asset_code: row.asset_code,
+                      })
+                      return suggestion ? (
+                        <div className="text-[10px] text-amber-200">Suggested: {suggestion.headline}</div>
+                      ) : null
+                    })()}
+                  </div>
+                ))}
+                {accessRows.length === 0 && <div className="text-xs text-gray-500">No staff activity yet.</div>}
               </div>
-              <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-1 content-start pr-1">
-                {assets.slice(0, 10).map(a => {
-                  const sc = { ONLINE: "#00ff88", OFFLINE: "#64748b", ISOLATED: "#ff9500", COMPROMISED: "#ff2d55" }
-                  return (
-                    <div key={a.id} className="cyber-card px-1.5 py-1 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sc[a.status] || "#64748b" }} />
-                      <div className="min-w-0">
-                        <div className="text-[9px] font-mono text-slate-200 truncate font-semibold">{a.asset_name}</div>
-                        <div className="text-[8px] font-mono text-slate-500">{a.status}</div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {assets.length === 0 && <div className="col-span-2 text-xs text-slate-600 font-mono text-center py-4">Scanning asset fleet...</div>}
+              <div className="text-[11px] text-gray-500 pt-2">
+                {selectedAttackLogId
+                  ? `Selected event #${selectedAttackLogId}: ${shapData.length ? "explanation ready" : "explanation pending"} · ${qigaActions.length} response options. `
+                  : "Select an attack to explain it. "}
+                <button onClick={() => navigate("/app/xai")} className="text-cyan-300">Explainable AI</button>
+                {" · "}
+                <button onClick={() => navigate("/app/optimizer")} className="text-cyan-300">QIGA</button>
               </div>
             </div>
           </div>
         </div>
 
         {/* Right Column: Interactive Attack Simulator */}
-        <div className="w-[245px] flex-shrink-0 cyber-card p-3 flex flex-col overflow-hidden shadow-xl border-cyan-500/30">
+        <div className="w-[245px] flex-shrink-0 border border-[#262626] rounded-md bg-[#0a0a0a] p-3 flex flex-col overflow-hidden">
           <SimulatorPanel sim={sim} />
         </div>
       </div>
